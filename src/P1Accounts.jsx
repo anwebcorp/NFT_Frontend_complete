@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import useAxiosPrivate from './useAxiosPrivate';
 import P2Accounts from './P2Accounts.jsx';
 import P3Accounts from './P3Accounts.jsx';
+import P4Accounts from './P4Accounts.jsx';
+import P5Accounts from './P5Accounts.jsx';
+
 
 const P1Accounts = () => {
     const [view, setView] = useState('projects');
@@ -13,6 +16,8 @@ const P1Accounts = () => {
     const [error, setError] = useState(null);
     const [newProjectName, setNewProjectName] = useState('');
     const [statusMessage, setStatusMessage] = useState('');
+
+    const [selectedHeadType, setSelectedHeadType] = useState(null);
     const axiosPrivate = useAxiosPrivate();
     const navigate = useNavigate();
 
@@ -56,8 +61,9 @@ const P1Accounts = () => {
         setView('heads');
     };
 
-    const handleSelectHead = (headId) => {
+    const handleSelectHead = (headId, headType) => {
         setSelectedHeadId(headId);
+        setSelectedHeadType(headType);
         setView('details');
     };
 
@@ -124,6 +130,12 @@ const P1Accounts = () => {
         if (view === 'heads' && selectedProjectId) {
             return <P2Accounts projectId={selectedProjectId} onSelectHead={handleSelectHead} onBack={handleBack} />;
         }
+        if (selectedHeadType === 'finance') {
+        return <P4Accounts projectId={selectedProjectId} headId={selectedHeadId} onBack={handleBack} />;
+    }
+    if (selectedHeadType === 'supplier') {
+        return <P5Accounts projectId={selectedProjectId} headId={selectedHeadId} onBack={handleBack} />;
+    }
 
         if (view === 'details' && selectedProjectId && selectedHeadId) {
             return <P3Accounts projectId={selectedProjectId} headId={selectedHeadId} onBack={handleBack} />;
