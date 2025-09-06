@@ -264,7 +264,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                 return (
                     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
                         <div className="w-full max-w-4xl">
-                            <h1 className="text-4xl font-bold text-gray-800 text-center mb-12">Daily Expenses</h1>
+                            <h1 className="text-2xl font-bold text-gray-800 text-center mb-12">Daily Expenses</h1>
                             
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
                                 {/* Add New Yearly Sheet - Moved to the top */}
@@ -291,7 +291,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                                 submitForm();
                                             }
                                         }}
-                                        className="bg-white rounded-2xl shadow-lg p-8 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center min-h-[120px] w-full max-w-sm"
+                                        className="bg-white rounded-2xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center min-h-[96px] w-full max-w-xs"
                                     >
                                         <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
                                             <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -317,13 +317,12 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                                 className="bg-white rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100"
                                             >
                                                 <h3 className="text-xl font-semibold text-gray-700 mb-2">{expense.title}</h3>
-                                                <p className="text-gray-500 text-sm">Total expenses till now: Rs {expense.total_amount ? expense.total_amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '10,000'}</p>
+                                                <p className="text-gray-500 text-sm">Total expenses till now: Rs {expense.total_amount ? expense.total_amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : 'none'}</p>
                                             </div>
                                         ))
                                     ) : (
-                                        <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-                                            <h3 className="text-xl font-semibold text-gray-700 mb-2">June-2025 to June-2026</h3>
-                                            <p className="text-gray-500 text-sm">Total expenses till now: Rs 10,000</p>
+                                        <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hidden lg:block">
+                                           
                                         </div>
                                     )}
                                 </div>
@@ -399,7 +398,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                 return (
                     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
                         <div className="w-full max-w-6xl">
-                            <h1 className="text-4xl font-bold text-gray-800 text-center mb-12">
+                            <h1 class="text-lg font-bold text-gray-800 text-center mb-8">
                                 Categories
                             </h1>
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -546,11 +545,10 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                 return (
                     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
                         <div className="w-full max-w-4xl">
-                            <h1 className="text-4xl font-bold text-gray-800 text-center mb-12">Total Staff Expense</h1>
+                            <h1 className="text-2xl font-bold text-gray-800 text-center mb-12">Total Staff Expense</h1>
                             
                             {/* Display the total expense */}
                             <div className="bg-white rounded-2xl shadow-lg p-8 mb-8 text-center border border-gray-100">
-                                <p className="text-2xl font-semibold text-gray-700">Total Staff Expense</p>
                                 <p className="text-4xl font-bold text-gray-900 mt-2">
                                     Rs {totalStaffAmount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                                 </p>
