@@ -105,7 +105,7 @@ function P4Accounts({ projectId, headId, onBack }) {
   const [statusMessage, setStatusMessage] = useState('');
 
   // === Quick Overview State ===
-  const [showOverview, setShowOverview] = useState(false);
+  const [showOverview, setShowOverview] = useState(true); // Changed to true to show by default
 
   // Fetch finance records and project-wide totals
   const fetchFinanceStatus = async () => {
@@ -220,43 +220,36 @@ function P4Accounts({ projectId, headId, onBack }) {
             </div>
           </div>
         </div>
-
-        {/* Quick Overview Button */}
-        <div className="flex justify-end mb-2">
-          <button
-            onClick={() => setShowOverview(v => !v)}
-            className="bg-gray-700 hover:bg-gray-800 text-white font-semibold py-2 px-4 rounded-lg shadow transition-all duration-150 mr-2"
-          >
-            {showOverview ? 'Hide Quick Overview' : 'Show Quick Overview'}
-          </button>
-        </div>
-
-        {/* Quick Overview Popup/Box */}
-        {showOverview && (
-          <div className="mb-6">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-5 shadow flex flex-col sm:flex-row sm:items-center sm:justify-center gap-4">
-              {(() => {
-                const overview = getOverviewCounts();
-                return (
-                  <>
-                    <div className="text-lg font-semibold text-gray-700">
-                      Total Entries: <span className="text-blue-800">{overview.total}</span>
-                    </div>
-                    <div className="text-lg font-semibold text-gray-700">
-                      Owner: <span className="text-blue-700">{overview.owner}</span>
-                    </div>
-                    <div className="text-lg font-semibold text-gray-700">
-                      Partner: <span className="text-yellow-700">{overview.partner}</span>
-                    </div>
-                    <div className="text-lg font-semibold text-gray-700">
-                      Department: <span className="text-purple-700">{overview.department}</span>
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
+        
+        {/* Quick Overview Popup/Box - Always visible with new styling */}
+        <div className="mb-6">
+          <div className="bg-white border-b-4 border-blue-500 rounded-lg p-6 shadow-lg">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">Quick Overview</h3>
+            {(() => {
+              const overview = getOverviewCounts();
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-gray-100 p-4 rounded-md text-center">
+                    <div className="text-sm font-medium text-gray-600">Total Entries</div>
+                    <div className="text-2xl font-bold text-blue-700">{overview.total}</div>
+                  </div>
+                  <div className="bg-gray-100 p-4 rounded-md text-center">
+                    <div className="text-sm font-medium text-gray-600">Owner</div>
+                    <div className="text-2xl font-bold text-blue-700">{overview.owner}</div>
+                  </div>
+                  <div className="bg-gray-100 p-4 rounded-md text-center">
+                    <div className="text-sm font-medium text-gray-600">Partner</div>
+                    <div className="text-2xl font-bold text-yellow-700">{overview.partner}</div>
+                  </div>
+                  <div className="bg-gray-100 p-4 rounded-md text-center">
+                    <div className="text-sm font-medium text-gray-600">Department</div>
+                    <div className="text-2xl font-bold text-purple-700">{overview.department}</div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
-        )}
+        </div>
 
         {/* Add payment button */}
         <div className="flex justify-end mb-6">
