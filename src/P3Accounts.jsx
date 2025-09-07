@@ -265,7 +265,9 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                 return (
                     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
                         <div className="w-full max-w-4xl">
-                            <h1 className="text-2xl font-bold text-gray-800 text-center mb-12">Daily Expenses</h1>
+                            <div className="bg-blue-100 p-4 rounded-xl shadow-md mb-10 text-center">
+                                <h1 className="text-4xl font-extrabold text-blue-700 tracking-wide transform transition-all duration-300 hover:scale-105">Daily Expenses</h1>
+                            </div>
                             
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
                                 {/* Add New Yearly Sheet - Moved to the top */}
@@ -336,9 +338,11 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
                         <div className="w-full max-w-6xl">
                             {/* Header */}
-                            <h1 className="text-4xl font-bold text-gray-800 text-center mb-12">
-                                {dailyExpenses.find(e => e.id === selectedIds.dailyExpenseId)?.title || 'June-2025 – June-2026'}
-                            </h1>
+                            <div className="bg-purple-100 p-4 rounded-xl shadow-md mb-12 text-center">
+                                <h1 className="text-4xl font-extrabold text-purple-700 relative pb-2 after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:w-16 after:h-1 after:bg-purple-500 after:rounded-full">
+                                    {dailyExpenses.find(e => e.id === selectedIds.dailyExpenseId)?.title || 'June-2025 – June-2026'}
+                                </h1>
+                            </div>
                             
                             {/* Grid Layout */}
                             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
@@ -402,9 +406,11 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                 return (
                     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
                         <div className="w-full max-w-6xl">
-                            <h1 class="text-lg font-bold text-gray-800 text-center mb-8">
-                                Categories
-                            </h1>
+                            <div className="bg-orange-100 p-4 rounded-xl shadow-md mb-8 text-center">
+                                <h1 className="text-4xl font-extrabold text-orange-600 uppercase tracking-widest animate-pulse">
+                                    Categories
+                                </h1>
+                            </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                                 {/* Add New Category Card - Moved to the top */}
                                 <div
@@ -471,9 +477,11 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
                         <div className="w-full max-w-6xl">
                             {/* Header */}
-                            <h1 className="text-4xl font-bold text-gray-800 text-center mb-12">
-                                {categories.find(c => c.id === selectedIds.categoryId)?.title || 'Petroleum Expenses'}
-                            </h1>
+                            <div className="bg-green-100 p-4 rounded-xl shadow-md mb-12 text-center">
+                                <h1 className="text-4xl font-extrabold text-green-700 font-serif italic">
+                                    {categories.find(c => c.id === selectedIds.categoryId)?.title || 'Petroleum Expenses'}
+                                </h1>
+                            </div>
                             {/* Total Expense Card */}
                             <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 text-center border border-gray-100">
                                 <p className="text-gray-500 text-sm mb-2">Total {categories.find(c => c.id === selectedIds.categoryId)?.title || 'Petroleum'} Expenses</p>
@@ -549,11 +557,14 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                 return (
                     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
                         <div className="w-full max-w-4xl">
-                            <h1 className="text-2xl font-bold text-gray-800 text-center mb-12">Total Staff Expense</h1>
+                            <div className="bg-gray-200 p-4 rounded-xl shadow-md mb-12 text-center">
+                                <h1 className="text-4xl font-extrabold text-gray-900 border-b-4 border-gray-300 pb-4">Total Staff Expense</h1>
+                            </div>
                             
                             {/* Display the total expense */}
-                            <div className="bg-white rounded-2xl shadow-lg p-8 mb-8 text-center border border-gray-100">
-                                <p className="text-4xl font-bold text-gray-900 mt-2">
+                            <div className="bg-white rounded-2xl shadow-lg p-4 mb-8 text-center border border-gray-100 transform transition-all duration-300 hover:scale-[1.01]">
+                                <p className="text-lg text-gray-500 mb-1">Total Amount</p>
+                                <p className="text-2xl font-bold text-gray-700">
                                     Rs {totalStaffAmount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                                 </p>
                             </div>
