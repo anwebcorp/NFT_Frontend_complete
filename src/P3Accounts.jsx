@@ -31,6 +31,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
     });
     const [billImage, setBillImage] = useState(null); // ADDED: State for the image file
     const [statusMessage, setStatusMessage] = useState('');
+    const [showBillForm, setShowBillForm] = useState(false); // ADDED: State to manage form visibility
 
     const [selectedIds, setSelectedIds] = useState({ dailyExpenseId: null, monthId: null, categoryId: null, subcategoryId: null, staffId: null });
     const axiosPrivate = useAxiosPrivate();
@@ -376,9 +377,12 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                     <div
                                         key={month.id}
                                         onClick={() => handleSelectMonthlyExpense(month.id)}
-                                        className="bg-white rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 min-h-[120px] flex items-center justify-center"
+                                        className="bg-white rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 min-h-[120px] flex flex-col items-center justify-center"
                                     >
                                         <h3 className="text-lg font-semibold text-gray-700 text-center">{month.title}</h3>
+                                        <p className="text-lg font-bold text-blue-600 mt-2">
+                                            Rs {month.total_amount ? parseFloat(month.total_amount).toLocaleString('en-IN') : '0'}
+                                        </p>
                                     </div>
                                 ))}
                             </div>
@@ -643,24 +647,38 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                     </div>
                                 </div>
                             </div>
+                            
+                            {/* Toggle Button for Bill Form */}
+                            <button
+                                onClick={() => setShowBillForm(!showBillForm)}
+                                className="w-full px-4 py-3 mb-6 text-sm sm:text-base bg-blue-600 text-white rounded-lg font-semibold shadow-md hover:bg-blue-700 active:bg-blue-800 transition-all duration-200 transform hover:scale-[1.02] flex items-center justify-center"
+                            >
+                                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                </svg>
+                                {showBillForm ? 'Hide Bill Form' : 'Create New Bill'}
+                            </button>
 
-                            <form onSubmit={handleCreateBill} className="mb-6 sm:mb-8 p-4 sm:p-6 bg-white rounded-xl shadow-md border border-gray-200">
-                                <h3 className="text-lg sm:text-xl font-semibold mb-4">Create New Bill</h3>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
-                                    <input type="text" value={newBill.voucher_no} onChange={(e) => setNewBill({ ...newBill, voucher_no: e.target.value })} className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" placeholder="Voucher Number" required />
-                                    <input type="date" value={newBill.date} onChange={(e) => setNewBill({ ...newBill, date: e.target.value })} className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" required />
-                                    <input type="number" value={newBill.amount} onChange={(e) => setNewBill({ ...newBill, amount: e.target.value })} className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" placeholder="Amount" required />
-                                    <input type="text" value={newBill.expense_type} onChange={(e) => setNewBill({ ...newBill, expense_type: e.target.value })} className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" placeholder="Expense Type" required />
-                                    <input type="text" value={newBill.purchased_by} onChange={(e) => setNewBill({ ...newBill, purchased_by: e.target.value })} className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" placeholder="Purchased By" required />
-                                    <input type="text" value={newBill.paid_at} onChange={(e) => setNewBill({ ...newBill, paid_at: e.target.value })} className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" placeholder="Paid At" required />
-                                    <input type="text" value={newBill.approved_by} onChange={(e) => setNewBill({ ...newBill, approved_by: e.target.value })} className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" placeholder="Approved By" required />
-                                    <input type="file" onChange={(e) => setBillImage(e.target.files[0])} className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 file:mr-4 file:py-1 file:px-2 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-                                </div>
-                                <button type="submit" className="w-full px-4 py-2 sm:py-3 text-sm sm:text-base bg-blue-600 text-white rounded-lg font-semibold shadow-md hover:bg-blue-700 active:bg-blue-800 transition-all duration-200 transform hover:scale-[1.02]">
-                                    Create Bill
-                                </button>
-                                {statusMessage && <p className={`mt-3 text-center text-sm sm:text-base font-medium ${statusMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>{statusMessage}</p>}
-                            </form>
+                            {/* Conditional Bill Form */}
+                            {showBillForm && (
+                                <form onSubmit={handleCreateBill} className="mb-6 sm:mb-8 p-4 sm:p-6 bg-white rounded-xl shadow-md border border-gray-200 animate-fade-in-down">
+                                    <h3 className="text-lg sm:text-xl font-semibold mb-4">New Bill</h3>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
+                                        <input type="text" value={newBill.voucher_no} onChange={(e) => setNewBill({ ...newBill, voucher_no: e.target.value })} className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" placeholder="Voucher Number" required />
+                                        <input type="date" value={newBill.date} onChange={(e) => setNewBill({ ...newBill, date: e.target.value })} className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" required />
+                                        <input type="number" value={newBill.amount} onChange={(e) => setNewBill({ ...newBill, amount: e.target.value })} className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" placeholder="Amount" required />
+                                        <input type="text" value={newBill.expense_type} onChange={(e) => setNewBill({ ...newBill, expense_type: e.target.value })} className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" placeholder="Expense Type" required />
+                                        <input type="text" value={newBill.purchased_by} onChange={(e) => setNewBill({ ...newBill, purchased_by: e.target.value })} className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" placeholder="Purchased By" required />
+                                        <input type="text" value={newBill.paid_at} onChange={(e) => setNewBill({ ...newBill, paid_at: e.target.value })} className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" placeholder="Paid At" required />
+                                        <input type="text" value={newBill.approved_by} onChange={(e) => setNewBill({ ...newBill, approved_by: e.target.value })} className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" placeholder="Approved By" required />
+                                        <input type="file" onChange={(e) => setBillImage(e.target.files[0])} className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 file:mr-4 file:py-1 file:px-2 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                                    </div>
+                                    <button type="submit" className="w-full px-4 py-2 sm:py-3 text-sm sm:text-base bg-blue-600 text-white rounded-lg font-semibold shadow-md hover:bg-blue-700 active:bg-blue-800 transition-all duration-200 transform hover:scale-[1.02]">
+                                        Create Bill
+                                    </button>
+                                </form>
+                            )}
+                            {statusMessage && <p className={`mt-3 text-center text-sm sm:text-base font-medium ${statusMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>{statusMessage}</p>}
                             <div className="grid gap-3 sm:gap-4">
                                 {bills.length > 0 ? (
                                     bills.map((bill) => (
@@ -696,6 +714,16 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
 
                                             {/* Bill Details Grid */}
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                                                {/* Added Voucher Number */}
+                                                <div className="flex items-center">
+                                                    <svg className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M16 16h.01"></path>
+                                                    </svg>
+                                                    <div>
+                                                        <p className="text-gray-500">Voucher Number</p>
+                                                        <p className="font-medium text-gray-900">{bill.voucher_no}</p>
+                                                    </div>
+                                                </div>
                                                 <div className="flex items-center">
                                                     <svg className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a.997.997 0 01-1.414 0l-7-7A1.997.997 0 013 12V7a4 4 0 014-4z"></path>
