@@ -69,26 +69,17 @@ const fetchAllExpenses = async (projectId, axiosPrivate) => {
               `projects/${projectId}/heads/${head.id}/expenses/${dailyExpense.id}/months/${month.id}/categories/${category.id}/subcategories/`
             );
             const subcategories = subcategoriesRes.data;
+            // Iterate through subcategories and sum their total_amount
             for (const subcategory of subcategories) {
-              const staffRes = await axiosPrivate.get(
-                `projects/${projectId}/heads/${head.id}/expenses/${dailyExpense.id}/months/${month.id}/categories/${category.id}/subcategories/${subcategory.id}/staff/`
-              );
-              const staffMembers = staffRes.data;
-              for (const staff of staffMembers) {
-                const billsRes = await axiosPrivate.get(
-                  `staff/${staff.id}/bills/`
-                );
-                const bills = billsRes.data;
-                for (const bill of bills) {
-                  total += Number(bill.amount);
-                }
-              }
+              total += Number(subcategory.total_amount || 0);
             }
           }
         }
       }
     }
-  } catch (err) {}
+  } catch (err) {
+    console.error("Error fetching total expenses:", err);
+  }
   return total;
 };
 

@@ -5,12 +5,11 @@ import React, { useState, useEffect } from 'react';
 import useAxiosPrivate from './useAxiosPrivate';
 
 const P3Accounts = ({ projectId, headId, onBack }) => {
-    const [view, setView] = useState('dailyExpenses'); // dailyExpenses, monthlyExpenses, categories, subcategories, staff, bills
+    const [view, setView] = useState('dailyExpenses'); // dailyExpenses, monthlyExpenses, categories, subcategories, bills, allBills
     const [dailyExpenses, setDailyExpenses] = useState([]);
     const [monthlyExpenses, setMonthlyExpenses] = useState([]);
     const [categories, setCategories] = useState([]);
     const [subcategories, setSubcategories] = useState([]);
-    const [staffList, setStaffList] = useState([]);
     const [bills, setBills] = useState([]);
 
     const [loading, setLoading] = useState(true);
@@ -19,7 +18,6 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
     const [newMonthlyTitle, setNewMonthlyTitle] = useState('');
     const [newCategoryTitle, setNewCategoryTitle] = useState('');
     const [newSubCategoryTitle, setNewSubCategoryTitle] = useState('');
-    const [newStaffName, setNewStaffName] = useState('');
     const [newBill, setNewBill] = useState({
         voucher_no: '',
         date: '',
@@ -29,12 +27,67 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
         paid_at: '',
         approved_by: ''
     });
-    const [billImage, setBillImage] = useState(null); // ADDED: State for the image file
+    const [billImage, setBillImage] = useState(null);
     const [statusMessage, setStatusMessage] = useState('');
-    const [showBillForm, setShowBillForm] = useState(false); // ADDED: State to manage form visibility
+    const [showBillForm, setShowBillForm] = useState(false);
 
-    const [selectedIds, setSelectedIds] = useState({ dailyExpenseId: null, monthId: null, categoryId: null, subcategoryId: null, staffId: null });
+    const [selectedIds, setSelectedIds] = useState({ dailyExpenseId: null, monthId: null, categoryId: null, subcategoryId: null });
     const axiosPrivate = useAxiosPrivate();
+
+    // --- Voucher Search State ---
+    const [voucherSearchQuery, setVoucherSearchQuery] = useState('');
+    const [voucherSearchResults, setVoucherSearchResults] = useState([]);
+    const [voucherSearchLoading, setVoucherSearchLoading] = useState(false);
+    const [voucherSearchError, setVoucherSearchError] = useState('');
+    
+    // NEW: State to hold the selected bill from search
+    const [selectedBill, setSelectedBill] = useState(null);
+    // NEW: State for all project bills
+    const [allProjectBills, setAllProjectBills] = useState([]);
+
+    const handleVoucherSearch = async () => {
+        // ADDED: Prevent search if query is empty or just whitespace
+        if (!voucherSearchQuery.trim()) {
+            setVoucherSearchResults([]);
+            return;
+        }
+
+        setVoucherSearchLoading(true);
+        setVoucherSearchError('');
+        setVoucherSearchResults([]);
+        try {
+            const resp = await axiosPrivate.get(
+                `projects/${projectId}/bills/search/?search=${encodeURIComponent(voucherSearchQuery)}`
+            );
+            setVoucherSearchResults(resp.data);
+            setVoucherSearchLoading(false);
+        } catch (err) {
+            setVoucherSearchError('Voucher search failed.');
+            setVoucherSearchLoading(false);
+        }
+    };
+
+    // NEW: Function to fetch all bills for the project using the search endpoint
+    const fetchAllProjectBills = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const resp = await axiosPrivate.get(`projects/${projectId}/bills/search/`);
+            setAllProjectBills(resp.data);
+            setLoading(false);
+            setView('allBills');
+        } catch (err) {
+            setError('Failed to fetch all bills.');
+            setLoading(false);
+            console.error("Error fetching all bills:", err);
+        }
+    };
+
+    // NEW: Handler to view a single bill
+    const handleViewBill = (bill) => {
+        setSelectedBill(bill);
+        setView('singleBillView');
+    };
 
     // Fetch data based on the current view and selected IDs
     const fetchData = async () => {
@@ -64,13 +117,8 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                     response = await axiosPrivate.get(url);
                     setSubcategories(response.data);
                     break;
-                case 'staff':
-                    url = `projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${selectedIds.monthId}/categories/${selectedIds.categoryId}/subcategories/${selectedIds.subcategoryId}/staff/`;
-                    response = await axiosPrivate.get(url);
-                    setStaffList(response.data);
-                    break;
                 case 'bills':
-                    url = `staff/${selectedIds.staffId}/bills/`;
+                    url = `projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${selectedIds.monthId}/categories/${selectedIds.categoryId}/subcategories/${selectedIds.subcategoryId}/bills/`;
                     response = await axiosPrivate.get(url);
                     setBills(response.data);
                     break;
@@ -87,9 +135,11 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
 
     useEffect(() => {
         if (projectId && headId) {
-            fetchData();
+            if (view !== 'singleBillView' && view !== 'allBills') {
+                fetchData();
+            }
         }
-    }, [projectId, headId, selectedIds.dailyExpenseId, selectedIds.monthId, selectedIds.categoryId, selectedIds.subcategoryId, selectedIds.staffId, view]);
+    }, [projectId, headId, selectedIds.dailyExpenseId, selectedIds.monthId, selectedIds.categoryId, selectedIds.subcategoryId, view]);
 
     // Handlers for navigation
     const handleSelectDailyExpense = (id) => {
@@ -109,11 +159,6 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
 
     const handleSelectSubCategory = (id) => {
         setSelectedIds(prev => ({ ...prev, subcategoryId: id }));
-        setView('staff');
-    };
-
-    const handleSelectStaff = (id) => {
-        setSelectedIds(prev => ({ ...prev, staffId: id }));
         setView('bills');
     };
 
@@ -131,13 +176,18 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                 setView('categories');
                 setSelectedIds(prev => ({ ...prev, categoryId: null }));
                 break;
-            case 'staff':
+            case 'bills':
                 setView('subcategories');
                 setSelectedIds(prev => ({ ...prev, subcategoryId: null }));
                 break;
-            case 'bills':
-                setView('staff');
-                setSelectedIds(prev => ({ ...prev, staffId: null }));
+            // NEW: Back logic for the single bill view
+            case 'singleBillView':
+                setView('monthlyExpenses');
+                setSelectedBill(null);
+                break;
+            // NEW: Back logic for the all bills view
+            case 'allBills':
+                setView('monthlyExpenses');
                 break;
             default:
                 onBack();
@@ -201,26 +251,11 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
         }
     };
 
-    const handleCreateStaff = async (e) => {
-        e.preventDefault();
-        setStatusMessage('');
-        try {
-            await axiosPrivate.post(`projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${selectedIds.monthId}/categories/${selectedIds.categoryId}/subcategories/${selectedIds.subcategoryId}/staff/`, { name: newStaffName });
-            setStatusMessage('Staff member created successfully!');
-            setNewStaffName('');
-            fetchData();
-        } catch (err) {
-            setStatusMessage('Failed to create staff member.');
-            console.error("Error creating staff member:", err);
-        }
-    };
-
     const handleCreateBill = async (e) => {
         e.preventDefault();
         setStatusMessage('');
 
         const formData = new FormData();
-        formData.append('staff', selectedIds.staffId);
         formData.append('voucher_no', newBill.voucher_no);
         formData.append('date', newBill.date);
         formData.append('amount', newBill.amount);
@@ -233,7 +268,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
         }
 
         try {
-            await axiosPrivate.post(`staff/${selectedIds.staffId}/bills/`, formData, {
+            await axiosPrivate.post(`projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${selectedIds.monthId}/categories/${selectedIds.categoryId}/subcategories/${selectedIds.subcategoryId}/bills/`, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },
@@ -256,6 +291,113 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
         }
     };
 
+    const BillCard = ({ bill, detailed = false }) => {
+        return (
+            <div className={`bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200 ${!detailed ? 'cursor-pointer' : ''}`} onClick={!detailed ? () => handleViewBill(bill) : null}>
+                <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center">
+                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
+                            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-900">{bill.expense_type}</h3>
+                            <div className="flex items-center text-sm text-gray-500 mt-1">
+                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4h3a2 2 0 012 2v1a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2h2z"></path>
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2 13.692V16a2 2 0 002 2h16a2 2 0 002-2v-2.308"></path>
+                                </svg>
+                                {new Date(bill.date).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-sm text-gray-500">Amount</p>
+                        <p className="text-xl font-bold text-gray-900">Rs {parseFloat(bill.amount).toLocaleString()}</p>
+                    </div>
+                </div>
+
+                {detailed && (
+                    <>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mt-4 pt-4 border-t border-gray-100">
+                            <div className="flex items-center">
+                                <svg className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M16 16h.01"></path>
+                                </svg>
+                                <div>
+                                    <p className="text-gray-500">Voucher Number</p>
+                                    <p className="font-medium text-gray-900">{bill.voucher_no}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center">
+                                <svg className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a.997.997 0 01-1.414 0l-7-7A1.997 1.997 0 013 12V7a4 4 0 014-4z"></path>
+                                </svg>
+                                <div>
+                                    <p className="text-gray-500">Expense Type</p>
+                                    <p className="font-medium text-gray-900">{bill.expense_type}</p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center">
+                                <svg className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                </svg>
+                                <div>
+                                    <p className="text-gray-500">Paid At</p>
+                                    <p className="font-medium text-gray-900">{bill.paid_at}</p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center">
+                                <svg className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                </svg>
+                                <div>
+                                    <p className="text-gray-500">Purchased By</p>
+                                    <p className="font-medium text-gray-900">{bill.purchased_by}</p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center">
+                                <svg className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <div>
+                                    <p className="text-gray-500">Approved By</p>
+                                    <p className="font-medium text-green-600">{bill.approved_by}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {bill.bill_image && (
+                            <div className="mt-4 pt-4 border-t border-gray-100">
+                                <a
+                                    href={bill.bill_image}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors duration-200"
+                                >
+                                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                    </svg>
+                                    View Bill Image
+                                </a>
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
+        );
+    };
+
     const renderContent = () => {
         if (loading) return <div className="text-center p-8 text-lg text-neutral-600">Loading {view}...</div>;
         if (error) return <div className="text-center p-8 text-lg text-red-600 font-semibold">{error}</div>;
@@ -268,17 +410,15 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                             <div className="bg-blue-100 p-4 rounded-xl shadow-md mb-10 text-center">
                                 <h1 className="text-4xl font-extrabold text-blue-700 tracking-wide transform transition-all duration-300 hover:scale-105">Daily Expenses</h1>
                             </div>
-                            
+
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
                                 {/* Add New Yearly Sheet - Moved to the top */}
                                 <div className="flex flex-col items-center justify-center">
-                                    <div 
+                                    <div
                                         onClick={() => {
-                                            // Show form or trigger creation
                                             const title = prompt('Enter yearly sheet title (e.g., "June-2025 to June-2026"):');
                                             if (title) {
                                                 setNewExpenseTitle(title);
-                                                // Auto-submit
                                                 const submitForm = async () => {
                                                     setStatusMessage('');
                                                     try {
@@ -325,7 +465,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                         ))
                                     ) : (
                                         <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hidden lg:block">
-                                           
+                                            
                                         </div>
                                     )}
                                 </div>
@@ -343,38 +483,89 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                     {dailyExpenses.find(e => e.id === selectedIds.dailyExpenseId)?.title || 'June-2025 – June-2026'}
                                 </h1>
                             </div>
+
+                            {/* UPDATED: Search bar and new "All Bills" button moved to the top */}
+                            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 relative">
+                                {/* Voucher search bar and button */}
+                                <div className="flex-1 w-full sm:w-auto">
+                                    <div className="flex items-center space-x-2">
+                                        <input
+                                            type="text"
+                                            placeholder="Search voucher number"
+                                            value={voucherSearchQuery}
+                                            onChange={e => setVoucherSearchQuery(e.target.value)}
+                                            className="border border-gray-300 rounded px-3 py-2 text-sm w-full"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleVoucherSearch}
+                                            className="bg-blue-600 text-white font-semibold px-4 py-2 rounded"
+                                        >
+                                            Search
+                                        </button>
+                                    </div>
+                                    {voucherSearchLoading && (
+                                        <div className="text-blue-600 text-sm mt-2">Searching...</div>
+                                    )}
+                                    {voucherSearchError && (
+                                        <div className="text-red-600 text-sm mt-2">{voucherSearchError}</div>
+                                    )}
+                                    {/* UPDATED: Search results are now styled like the BillCard */}
+                                    {voucherSearchResults && voucherSearchResults.length > 0 && (
+                                        <div className="absolute top-full left-0 right-0 z-20 mt-2 bg-white rounded-xl shadow-lg border border-gray-200 p-4 max-h-60 overflow-y-auto">
+                                            <h4 className="text-lg font-bold text-gray-800 mb-2">Search Results ({voucherSearchResults.length})</h4>
+                                            <div className="grid gap-3">
+                                                {voucherSearchResults.map((bill) => (
+                                                    <BillCard key={bill.id} bill={bill} />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                                {/* NEW: All Bills button */}
+                                <div className="w-full sm:w-auto mt-4 sm:mt-0">
+                                    <button
+                                        type="button"
+                                        onClick={fetchAllProjectBills}
+                                        className="w-full bg-green-600 text-white font-semibold px-4 py-2 rounded shadow-md hover:bg-green-700 transition-colors duration-200"
+                                    >
+                                        All Bills
+                                    </button>
+                                </div>
+                            </div>
                             
-                            {/* Grid Layout */}
                             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
                                 {/* Add New Month Sheet Button - Moved to the top */}
-                                <div 
-                                    onClick={() => {
-                                        const title = prompt('Enter month name (e.g., "June 2025"):');
-                                        if (title) {
-                                            setNewMonthlyTitle(title);
-                                            const submitForm = async () => {
-                                                setStatusMessage('');
-                                                try {
-                                                    await axiosPrivate.post(`projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/`, { title });
-                                                    setStatusMessage('Monthly expense created successfully!');
-                                                    setNewMonthlyTitle('');
-                                                    fetchData();
-                                                } catch (err) {
-                                                    setStatusMessage('Failed to create monthly expense.');
-                                                    console.error("Error creating monthly expense:", err);
-                                                }
-                                            };
-                                            submitForm();
-                                        }
-                                    }}
-                                    className="bg-white rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border-2 border-dashed border-gray-300 hover:border-blue-400 min-h-[120px] flex flex-col items-center justify-center"
-                                >
-                                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
-                                        <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                        </svg>
+                                <div>
+                                    <div
+                                        onClick={() => {
+                                            const title = prompt('Enter month name (e.g., "June 2025"):');
+                                            if (title) {
+                                                setNewMonthlyTitle(title);
+                                                const submitForm = async () => {
+                                                    setStatusMessage('');
+                                                    try {
+                                                        await axiosPrivate.post(`projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/`, { title });
+                                                        setStatusMessage('Monthly expense created successfully!');
+                                                        setNewMonthlyTitle('');
+                                                        fetchData();
+                                                    } catch (err) {
+                                                        setStatusMessage('Failed to create monthly expense.');
+                                                        console.error("Error creating monthly expense:", err);
+                                                    }
+                                                };
+                                                submitForm();
+                                            }
+                                        }}
+                                        className="bg-white rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border-2 border-dashed border-gray-300 hover:border-blue-400 min-h-[120px] flex flex-col items-center justify-center"
+                                    >
+                                        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
+                                            <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                            </svg>
+                                        </div>
+                                        <p className="text-gray-600 font-medium text-center text-sm">Add New Month Sheet</p>
                                     </div>
-                                    <p className="text-gray-600 font-medium text-center text-sm">Add New Month Sheet</p>
                                 </div>
                                 {/* Existing monthly expenses - Moved below */}
                                 {monthlyExpenses.map((month) => (
@@ -391,7 +582,6 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                 ))}
                             </div>
                             
-                            {/* Status Message */}
                             {statusMessage && (
                                 <div className="text-center">
                                     <p className={`text-sm font-medium ${statusMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
@@ -551,85 +741,9 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                         </div>
                     </div>
                 );
-            case 'staff':
-                // Calculate total amount for all staff members
-                const totalStaffAmount = staffList.reduce((sum, staff) => sum + parseFloat(staff.total_amount || 0), 0);
-                return (
-                    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-                        <div className="w-full max-w-4xl">
-                            <div className="bg-gray-200 p-4 rounded-xl shadow-md mb-12 text-center">
-                                <h1 className="text-4xl font-extrabold text-gray-900 border-b-4 border-gray-300 pb-4">Total Staff Expense</h1>
-                            </div>
-                            
-                            {/* Display the total expense */}
-                            <div className="bg-white rounded-2xl shadow-lg p-4 mb-8 text-center border border-gray-100 transform transition-all duration-300 hover:scale-[1.01]">
-                                <p className="text-lg text-gray-500 mb-1">Total Amount</p>
-                                <p className="text-2xl font-bold text-gray-700">
-                                    Rs {totalStaffAmount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                                </p>
-                            </div>
-
-                            {/* Grid for staff members and the add new button */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                {/* Add New Staff Member Card - Moved to the top */}
-                                <div 
-                                    onClick={() => {
-                                        const name = prompt('Enter staff member name:');
-                                        if (name) {
-                                            setNewStaffName(name);
-                                            const submitForm = async () => {
-                                                setStatusMessage('');
-                                                try {
-                                                    await axiosPrivate.post(`projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${selectedIds.monthId}/categories/${selectedIds.categoryId}/subcategories/${selectedIds.subcategoryId}/staff/`, { name });
-                                                    setStatusMessage('Staff member added successfully!');
-                                                    setNewStaffName('');
-                                                    fetchData();
-                                                } catch (err) {
-                                                    setStatusMessage('Failed to add staff member.');
-                                                    console.error("Error creating staff member:", err);
-                                                }
-                                            };
-                                            submitForm();
-                                        }
-                                    }}
-                                    className="bg-white rounded-2xl shadow-md p-6 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border-2 border-dashed border-gray-300 hover:border-blue-400 flex flex-col items-center justify-center text-center min-h-[120px]"
-                                >
-                                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-2">
-                                        <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                        </svg>
-                                    </div>
-                                    <p className="text-gray-600 font-medium">Add New Name</p>
-                                </div>
-                                {staffList.length > 0 ? (
-                                    staffList.map((staff) => (
-                                        <div
-                                            key={staff.id}
-                                            onClick={() => handleSelectStaff(staff.id)}
-                                            className="bg-white rounded-2xl shadow-md p-6 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center text-center min-h-[120px]"
-                                        >
-                                            <h3 className="text-lg font-semibold text-gray-700 mb-2 break-words">{staff.name}</h3>
-                                            <p className="text-xl font-bold text-blue-600">
-                                                Rs {parseFloat(staff.total_amount || 0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                                            </p>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="text-center py-8">
-                                        <p className="text-gray-500 text-base">No staff members found.</p>
-                                    </div>
-                                )}
-                            </div>
-                            
-                            {statusMessage && (
-                                <p className={`mt-4 text-center text-sm font-medium ${statusMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
-                                    {statusMessage}
-                                </p>
-                            )}
-                        </div>
-                    </div>
-                );
             case 'bills':
+                // Calculate total amount for all bills
+                const totalBillsAmount = bills.reduce((sum, bill) => sum + parseFloat(bill.amount || 0), 0);
                 return (
                     <div className="flex flex-col items-center p-4 sm:p-6 lg:p-8">
                         <div className="w-full max-w-7xl">
@@ -642,14 +756,14 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                         </svg>
                                     </div>
                                     <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
-                                        Total {staffList.find(s => s.id === selectedIds.staffId)?.name || 'Staff'} Expense
+                                        Bills
                                     </h2>
                                 </div>
                                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
                                     <div>
                                         <p className="text-sm text-gray-500 mb-1">Total Amount Spent</p>
                                         <p className="text-2xl sm:text-3xl font-bold text-gray-900">
-                                            Rs {bills.reduce((sum, bill) => sum + parseFloat(bill.amount || 0), 0).toLocaleString()}
+                                            Rs {totalBillsAmount.toLocaleString()}
                                         </p>
                                     </div>
                                     <div className="text-right">
@@ -658,7 +772,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                     </div>
                                 </div>
                             </div>
-                            
+
                             {/* Toggle Button for Bill Form */}
                             <button
                                 onClick={() => setShowBillForm(!showBillForm)}
@@ -693,112 +807,58 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                             <div className="grid gap-3 sm:gap-4">
                                 {bills.length > 0 ? (
                                     bills.map((bill) => (
-                                        <div key={bill.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200">
-                                            {/* Bill Header */}
-                                            <div className="flex items-start justify-between mb-4">
-                                                <div className="flex items-center">
-                                                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
-                                                        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                                        </svg>
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="text-lg font-semibold text-gray-900">{bill.expense_type}</h3>
-                                                        <div className="flex items-center text-sm text-gray-500 mt-1">
-                                                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4h3a2 2 0 012 2v1a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2h2z"></path>
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2 13.692V16a2 2 0 002 2h16a2 2 0 002-2v-2.308"></path>
-                                                            </svg>
-                                                            {new Date(bill.date).toLocaleDateString('en-US', { 
-                                                                year: 'numeric', 
-                                                                month: 'long', 
-                                                                day: 'numeric' 
-                                                            })}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-sm text-gray-500">Amount</p>
-                                                    <p className="text-xl font-bold text-gray-900">Rs {parseFloat(bill.amount).toLocaleString()}</p>
-                                                </div>
-                                            </div>
-
-                                            {/* Bill Details Grid */}
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                                                {/* Added Voucher Number */}
-                                                <div className="flex items-center">
-                                                    <svg className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M16 16h.01"></path>
-                                                    </svg>
-                                                    <div>
-                                                        <p className="text-gray-500">Voucher Number</p>
-                                                        <p className="font-medium text-gray-900">{bill.voucher_no}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center">
-                                                    <svg className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a.997.997 0 01-1.414 0l-7-7A1.997.997 0 013 12V7a4 4 0 014-4z"></path>
-                                                    </svg>
-                                                    <div>
-                                                        <p className="text-gray-500">Expense Type</p>
-                                                        <p className="font-medium text-gray-900">{bill.expense_type}</p>
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex items-center">
-                                                    <svg className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                                    </svg>
-                                                    <div>
-                                                        <p className="text-gray-500">Paid At</p>
-                                                        <p className="font-medium text-gray-900">{bill.paid_at}</p>
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex items-center">
-                                                    <svg className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                                                    </svg>
-                                                    <div>
-                                                        <p className="text-gray-500">Purchased By</p>
-                                                        <p className="font-medium text-gray-900">{bill.purchased_by}</p>
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex items-center">
-                                                    <svg className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                                    </svg>
-                                                    <div>
-                                                        <p className="text-gray-500">Approved By</p>
-                                                        <p className="font-medium text-green-600">{bill.approved_by}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Bill Image */}
-                                            {bill.bill_image && (
-                                                <div className="mt-4 pt-4 border-t border-gray-100">
-                                                    <a 
-                                                        href={bill.bill_image} 
-                                                        target="_blank" 
-                                                        rel="noopener noreferrer" 
-                                                        className="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors duration-200"
-                                                    >
-                                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                                        </svg>
-                                                        View Bill Image
-                                                    </a>
-                                                </div>
-                                            )}
-                                        </div>
+                                        <BillCard key={bill.id} bill={bill} detailed={true} />
                                     ))
                                 ) : (
                                     <div className="text-center py-8 sm:py-12">
                                         <p className="text-gray-500 text-base sm:text-lg">No bills found. Create one above.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
+            case 'singleBillView':
+                return (
+                    <div className="flex flex-col items-center p-4 sm:p-6 lg:p-8">
+                        <div className="w-full max-w-2xl">
+                            <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6 text-center">Bill Details</h2>
+                            {selectedBill ? (
+                                <BillCard bill={selectedBill} detailed={true} />
+                            ) : (
+                                <p className="text-center text-red-500">No bill data found.</p>
+                            )}
+                        </div>
+                    </div>
+                );
+            case 'allBills':
+                const allBillsTotalAmount = allProjectBills.reduce((sum, bill) => sum + parseFloat(bill.amount || 0), 0);
+                return (
+                    <div className="flex flex-col items-center p-4 sm:p-6 lg:p-8">
+                        <div className="w-full max-w-7xl">
+                            <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 mb-6">
+                                <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">All Project Bills</h2>
+                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
+                                    <div>
+                                        <p className="text-sm text-gray-500 mb-1">Total Amount Spent</p>
+                                        <p className="text-2xl sm:text-3xl font-bold text-gray-900">
+                                            Rs {allBillsTotalAmount.toLocaleString()}
+                                        </p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-sm text-gray-500 mb-1">Total Bills</p>
+                                        <p className="text-2xl sm:text-3xl font-bold text-blue-600">{allProjectBills.length}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="grid gap-3 sm:gap-4">
+                                {allProjectBills.length > 0 ? (
+                                    allProjectBills.map((bill) => (
+                                        <BillCard key={bill.id} bill={bill} detailed={true} />
+                                    ))
+                                ) : (
+                                    <div className="text-center py-8 sm:py-12">
+                                        <p className="text-gray-500 text-base sm:text-lg">No bills found for this project.</p>
                                     </div>
                                 )}
                             </div>
