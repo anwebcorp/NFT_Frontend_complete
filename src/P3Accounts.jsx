@@ -600,7 +600,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                         <div className="w-full max-w-6xl">
                             <div className="bg-blue-600 p-4 rounded-xl shadow-md mb-8 text-center">
                                 <h1 className="text-4xl font-extrabold text-white uppercase tracking-widest animate-pulse">
-                                    Categories
+                                    Main Heads
                                 </h1>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
