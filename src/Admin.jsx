@@ -8,6 +8,10 @@ import PayAdmin from './PayAdmin';
 import Attendance from './Attendance';
 import Suppliers from "./Suppliers";
 
+// ⭐ NEW: Import the new components
+import Inbox from "./Inbox";
+import GenerateDemand from "./GenerateDemand";
+
 const DEFAULT_AVATAR_PLACEHOLDER = "https://placehold.co/150x150/CCCCCC/FFFFFF?text=NO+IMAGE";
 const ADMIN_AVATAR_PLACEHOLDER = "https://images.unsplash.com/photo-1531297484001-80022131f5a1?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D";
 
@@ -49,8 +53,11 @@ export default function Admin({ user, setUser }) {
     const [employeeForAttendance, setEmployeeForAttendance] = useState(null);
 
     const [showSuppliersPage, setShowSuppliersPage] = useState(false);
-
     const [showMenu, setShowMenu] = useState(false);
+
+    // ⭐ NEW: Add state for Inbox and GenerateDemand pages
+    const [showInbox, setShowInbox] = useState(false);
+    const [showGenerateDemand, setShowGenerateDemand] = useState(false);
 
     const navigate = useNavigate();
 
@@ -178,6 +185,28 @@ export default function Admin({ user, setUser }) {
     // eslint-disable-next-line no-unused-vars
     const handleFeatureClick = (feature) => {
         setShowComingSoon(feature);
+    };
+
+    // ⭐ UPDATED: Functions to manage the state for new pages
+    const handleInboxClick = () => {
+        setShowComingSoon(null);
+        setShowInbox(true);
+    };
+
+    const handleGenerateDemandClick = () => {
+        setShowComingSoon(null);
+        setShowGenerateDemand(true);
+    };
+
+    // ⭐ NEW: Back functions for the new pages
+    const handleBackFromInbox = () => {
+        setShowInbox(false);
+        setShowMenu(false);
+    };
+
+    const handleBackFromGenerateDemand = () => {
+        setShowGenerateDemand(false);
+        setShowMenu(false);
     };
 
     const handleManageDocumentsClick = (employee) => {
@@ -581,7 +610,7 @@ export default function Admin({ user, setUser }) {
 
     return (
         <div className="min-h-screen bg-neutral-100 font-sans text-neutral-800 relative overflow-hidden">
-            <div className={`absolute inset-0 transition-transform duration-300 ease-out ${selectedEmployee || showCreateForm || showEditForm || showDocuments || showDetailSubPage || showPaymentPage || showAttendancePage || showSuppliersPage ? '-translate-x-full' : 'translate-x-0'}`}>
+            <div className={`absolute inset-0 transition-transform duration-300 ease-out ${selectedEmployee || showCreateForm || showEditForm || showDocuments || showDetailSubPage || showPaymentPage || showAttendancePage || showSuppliersPage || showInbox || showGenerateDemand ? '-translate-x-full' : 'translate-x-0'}`}>
                 
                 {/* Desktop Header */}
                 <div className="hidden md:flex bg-white py-4 px-6 items-center justify-between shadow-md">
@@ -602,7 +631,7 @@ export default function Admin({ user, setUser }) {
                             Projects & Accounts
                         </button>
                         <button
-                            onClick={() => setShowComingSoon("Generate Demand")}
+                            onClick={handleGenerateDemandClick}
                             className="flex items-center text-sm text-neutral-600 cursor-pointer hover:text-blue-600"
                         >
                             <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -611,7 +640,7 @@ export default function Admin({ user, setUser }) {
                             Generate Demand
                         </button>
                         <button
-                            onClick={() => setShowComingSoon("Inbox")}
+                            onClick={handleInboxClick}
                             className="relative flex items-center text-sm text-neutral-600 cursor-pointer hover:text-blue-600"
                         >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -676,7 +705,7 @@ export default function Admin({ user, setUser }) {
                         <button
                             onClick={() => {
                                 setShowMenu(false);
-                                setShowComingSoon("Generate Demand");
+                                handleGenerateDemandClick();
                             }}
                             className="w-full text-left py-2 px-4 rounded-md hover:bg-neutral-100 flex items-center text-lg text-neutral-700"
                         >
@@ -688,7 +717,7 @@ export default function Admin({ user, setUser }) {
                         <button
                             onClick={() => {
                                 setShowMenu(false);
-                                setShowComingSoon("Inbox");
+                                handleInboxClick();
                             }}
                             className="w-full text-left py-2 px-4 rounded-md hover:bg-neutral-100 flex items-center text-lg text-neutral-700"
                         >
@@ -727,8 +756,8 @@ export default function Admin({ user, setUser }) {
                 <div className="pt-4 pb-8 h-[calc(100vh-60px)] overflow-y-auto">
                     {/* Welcome Banner */}
                     <div className="bg-white p-6 rounded-lg shadow-md mx-4 my-6">
-                        <h2 className="text-xl font-semibold text-neutral-800">Welcome Mr. Fiaz (Accounts & Store)</h2>
-                        <p className="text-sm text-neutral-500 mt-1">Manage your team and track demands efficiently</p>
+                        <h2 className="text-xl font-semibold text-neutral-800 text-center "> Welcome {user.username} (Admin)</h2>
+                        <p className="text-sm text-neutral-500 mt-1 text-center">Manage your team and track demands efficiently</p>
                     </div>
 
                     {/* Employee Directory Section */}
@@ -1048,6 +1077,26 @@ export default function Admin({ user, setUser }) {
                                 ${showSuppliersPage ? 'translate-x-0' : 'translate-x-full'}`}
                 >
                     <Suppliers onBack={handleBackFromSuppliers} />
+                </div>
+            )}
+
+            {showInbox && (
+                 <div
+                    className={`fixed inset-0 bg-neutral-50 z-20 flex flex-col font-sans
+                                transition-transform duration-300 ease-out
+                                ${showInbox ? 'translate-x-0' : 'translate-x-full'}`}
+                >
+                    <Inbox onBack={handleBackFromInbox} />
+                </div>
+            )}
+
+            {showGenerateDemand && (
+                 <div
+                    className={`fixed inset-0 bg-neutral-50 z-20 flex flex-col font-sans
+                                transition-transform duration-300 ease-out
+                                ${showGenerateDemand ? 'translate-x-0' : 'translate-x-full'}`}
+                >
+                    <GenerateDemand onBack={handleBackFromGenerateDemand} />
                 </div>
             )}
 
