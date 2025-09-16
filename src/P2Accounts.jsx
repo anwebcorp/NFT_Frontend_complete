@@ -4,6 +4,7 @@ import useAxiosPrivate from './useAxiosPrivate';
 
 const HEAD_TYPE_OPTIONS = [
     { value: "daily_expense", label: "Daily Expense" },
+    { value: "supplier", label: "Supplier" },
     { value: "finance", label: "Finance" },
 ];
 
@@ -210,11 +211,17 @@ const P2Accounts = ({ projectId, onSelectHead, onBack }) => {
                                         <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg ${
                                             head.type === "daily_expense" 
                                                 ? "bg-gradient-to-r from-emerald-500 to-teal-500" 
-                                                : "bg-gradient-to-r from-blue-500 to-indigo-500"
+                                                : head.type === "supplier"
+                                                    ? "bg-gradient-to-r from-amber-500 to-orange-500" // New gradient for Supplier
+                                                    : "bg-gradient-to-r from-blue-500 to-indigo-500"
                                         }`}>
                                             {head.type === "daily_expense" ? (
                                                 <svg className="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                                                </svg>
+                                            ) : head.type === "supplier" ? (
+                                                <svg className="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14v12a2 2 0 01-2 2H7a2 2 0 01-2-2V9z" />
                                                 </svg>
                                             ) : (
                                                 <svg className="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
@@ -226,7 +233,9 @@ const P2Accounts = ({ projectId, onSelectHead, onBack }) => {
                                         <div className={`inline-flex items-center px-3 sm:px-4 md:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm font-bold mb-4 sm:mb-6 shadow-md ${
                                             head.type === "daily_expense" 
                                                 ? "bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-800 border-2 border-emerald-200" 
-                                                : "bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 border-2 border-blue-200"
+                                                : head.type === "supplier"
+                                                    ? "bg-gradient-to-r from-amber-100 to-orange-100 text-orange-800 border-2 border-orange-200" // New gradient for Supplier label
+                                                    : "bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 border-2 border-blue-200"
                                         }`}>
                                             {head.type === "daily_expense" && (
                                                 <>
@@ -234,6 +243,14 @@ const P2Accounts = ({ projectId, onSelectHead, onBack }) => {
                                                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                                                     </svg>
                                                     DAILY EXPENSE
+                                                </>
+                                            )}
+                                            {head.type === "supplier" && (
+                                                <>
+                                                    <svg className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14v12a2 2 0 01-2 2H7a2 2 0 01-2-2V9z" />
+                                                    </svg>
+                                                    SUPPLIER
                                                 </>
                                             )}
                                             {head.type === "finance" && (
