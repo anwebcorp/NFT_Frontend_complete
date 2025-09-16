@@ -61,6 +61,21 @@ export default function Admin({ user, setUser }) {
 
     const navigate = useNavigate();
 
+    // ⭐ NEW: useEffect to handle page refresh by retrieving user from local storage
+    useEffect(() => {
+        if (!user) {
+            const storedUser = localStorage.getItem("user");
+            if (storedUser) {
+                try {
+                    setUser(JSON.parse(storedUser));
+                } catch (e) {
+                    console.error("Failed to parse user from localStorage:", e);
+                    localStorage.removeItem("user");
+                }
+            }
+        }
+    }, [user, setUser]);
+
     const fetchEmployees = useCallback(async () => {
         try {
             const response = await axiosInstance.get('/employees/');
@@ -85,7 +100,7 @@ export default function Admin({ user, setUser }) {
                     processAndSetEmployees(json.parse(storedProfiles));
                     setError("Failed to load employee data from server. Loaded from storage.");
                 } catch (e) {
-                    console.error("Failed to parse profiles from localStorage after API error:", e);
+                console.error("Failed to parse profiles from localStorage after API error:", e);
                     setError("Failed to load employee data from storage.");
                 }
             } else {
@@ -95,12 +110,8 @@ export default function Admin({ user, setUser }) {
     }, []);
 
     const processAndSetEmployees = (profiles) => {
-        const ADMIN_ID = 18;
-        const filteredEmployees = profiles.filter(
-            (profile) => profile.id !== ADMIN_ID
-        );
-
-        const formattedEmployees = filteredEmployees.map((profile) => ({
+        // ⭐ REMOVED: Filtering logic for ADMIN_ID
+        const formattedEmployees = profiles.map((profile) => ({
             id: profile.id,
             name: profile.name,
             username: profile.user?.username || 'N/A',
@@ -124,15 +135,6 @@ export default function Admin({ user, setUser }) {
     useEffect(() => {
         fetchEmployees();
     }, [fetchEmployees]);
-
-    useEffect(() => {
-        if (showComingSoon) {
-            const timer = setTimeout(() => {
-                setShowComingSoon(null);
-            }, 3000);
-            return () => clearTimeout(timer);
-        }
-    }, [showComingSoon]);
 
     useEffect(() => {
         if (createEmployeeSuccess || createEmployeeError) {
@@ -608,6 +610,8 @@ export default function Admin({ user, setUser }) {
         );
     };
 
+    const hasPermission = user?.username === "fiazstores123";
+
     return (
         <div className="min-h-screen bg-neutral-100 font-sans text-neutral-800 relative overflow-hidden">
             <div className={`absolute inset-0 transition-transform duration-300 ease-out ${selectedEmployee || showCreateForm || showEditForm || showDocuments || showDetailSubPage || showPaymentPage || showAttendancePage || showSuppliersPage || showInbox || showGenerateDemand ? '-translate-x-full' : 'translate-x-0'}`}>
@@ -630,15 +634,17 @@ export default function Admin({ user, setUser }) {
                             </svg>
                             Projects & Accounts
                         </button>
-                        <button
-                            onClick={handleGenerateDemandClick}
-                            className="flex items-center text-sm text-neutral-600 cursor-pointer hover:text-blue-600"
-                        >
-                            <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
-                            Generate Demand
-                        </button>
+                        {hasPermission && (
+                             <button
+                                 onClick={handleGenerateDemandClick}
+                                 className="flex items-center text-sm text-neutral-600 cursor-pointer hover:text-blue-600"
+                             >
+                                 <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                 </svg>
+                                 Generate Demand
+                             </button>
+                         )}
                         <button
                             onClick={handleInboxClick}
                             className="relative flex items-center text-sm text-neutral-600 cursor-pointer hover:text-blue-600"
@@ -702,18 +708,20 @@ export default function Admin({ user, setUser }) {
                             </svg>
                             Projects & Accounts
                         </button>
-                        <button
-                            onClick={() => {
-                                setShowMenu(false);
-                                handleGenerateDemandClick();
-                            }}
-                            className="w-full text-left py-2 px-4 rounded-md hover:bg-neutral-100 flex items-center text-lg text-neutral-700"
-                        >
-                            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
-                            Generate Demand
-                        </button>
+                        {hasPermission && (
+                             <button
+                                 onClick={() => {
+                                     setShowMenu(false);
+                                     handleGenerateDemandClick();
+                                 }}
+                                 className="w-full text-left py-2 px-4 rounded-md hover:bg-neutral-100 flex items-center text-lg text-neutral-700"
+                             >
+                                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                 </svg>
+                                 Generate Demand
+                             </button>
+                         )}
                         <button
                             onClick={() => {
                                 setShowMenu(false);
@@ -1086,7 +1094,7 @@ export default function Admin({ user, setUser }) {
                                 transition-transform duration-300 ease-out
                                 ${showInbox ? 'translate-x-0' : 'translate-x-full'}`}
                 >
-                    <Inbox onBack={handleBackFromInbox} />
+                    <Inbox onBack={handleBackFromInbox} currentUsername={user?.username} />
                 </div>
             )}
 
