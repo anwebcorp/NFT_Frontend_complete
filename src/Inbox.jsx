@@ -6,6 +6,8 @@ const RECOMMENDER_USERNAME = 'danial@512';
 const APPROVER_USERNAME = 'GRasool799';
 const FINANCE_USERNAME = 'fahad_ali90';
 const GENERATOR_USERNAME = 'fiazstores123';
+// ⭐ NEW: Add the username for the Normal Admin
+const NORMAL_ADMIN_USERNAME = 'mnaveed09'; // REMINDER: Update this with the actual username
 
 export default function Inbox({ onBack, currentUsername }) {
     const [demands, setDemands] = useState([]);
@@ -20,6 +22,8 @@ export default function Inbox({ onBack, currentUsername }) {
     const isRecommender = currentUsername === RECOMMENDER_USERNAME;
     const isApprover = currentUsername === APPROVER_USERNAME;
     const isFinance = currentUsername === FINANCE_USERNAME;
+    // ⭐ NEW: Check for the Normal Admin role
+    const isNormalAdmin = currentUsername === NORMAL_ADMIN_USERNAME;
 
     useEffect(() => {
         fetchDemands();
@@ -215,8 +219,8 @@ export default function Inbox({ onBack, currentUsername }) {
     }
 
     const filteredDemands = demands.filter(demand => {
-        // Generator's view
-        if (isGenerator) {
+        // ⭐ UPDATED: Generator's and Normal Admin's view
+        if (isGenerator || isNormalAdmin) {
             if (filter === 'all') {
                 return true;
             }
@@ -312,8 +316,8 @@ export default function Inbox({ onBack, currentUsername }) {
                             All
                         </button>
 
-                        {/* Generator's buttons */}
-                        {isGenerator && (
+                        {/* ⭐ UPDATED: Generator's and Normal Admin's buttons */}
+                        {(isGenerator || isNormalAdmin) && (
                             <>
                                 <button
                                     onClick={() => setFilter('pending')}
@@ -447,8 +451,8 @@ export default function Inbox({ onBack, currentUsername }) {
                                         )}
     
                                         <div className="mt-4 flex flex-wrap gap-2">
-                                            {/* Do not show buttons if the user is a generator, as per instructions. */}
-                                            {!isGenerator && (
+                                            {/* ⭐ UPDATED: Do not show buttons if the user is a generator OR normal admin. */}
+                                            {(!isGenerator && !isNormalAdmin) && (
                                                 <>
                                                     {isRecommender && demand.status === 'generated' && (
                                                         <>
