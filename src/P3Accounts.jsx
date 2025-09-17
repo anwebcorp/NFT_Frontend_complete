@@ -5,11 +5,11 @@ import React, { useState, useEffect } from 'react';
 import useAxiosPrivate from './useAxiosPrivate';
 
 const P3Accounts = ({ projectId, headId, onBack }) => {
-    const [view, setView] = useState('dailyExpenses'); // dailyExpenses, monthlyExpenses, categories, subcategories, bills, allBills
+    const [view, setView] = useState('dailyExpenses'); // dailyExpenses, monthlyExpenses, categories, subcategories, bills, allBills, billActions, allBillsMonths
     const [dailyExpenses, setDailyExpenses] = useState([]);
     const [monthlyExpenses, setMonthlyExpenses] = useState([]);
     const [categories, setCategories] = useState([]);
-    const [subcategories, setSubcategories] = useState([]);
+    const [subcategories, setSubcategories] = useState([]); // State for subcategories
     const [bills, setBills] = useState([]);
 
     const [loading, setLoading] = useState(true);
@@ -18,18 +18,26 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
     const [newMonthlyTitle, setNewMonthlyTitle] = useState('');
     const [newCategoryTitle, setNewCategoryTitle] = useState('');
     const [newSubCategoryTitle, setNewSubCategoryTitle] = useState('');
-    const [newBill, setNewBill] = useState({
+
+    const [statusMessage, setStatusMessage] = useState('');
+
+    // State for the new multi-step bill creation process
+    const [isCreatingBill, setIsCreatingBill] = useState(false);
+    const [billCreationStep, setBillCreationStep] = useState('selectMonth'); // 'selectMonth' or 'enterDetails'
+    const [selectedMonthForBill, setSelectedMonthForBill] = useState(null); // The ID of the month to which the bill will be added
+
+    // Updated bill form data to match the backend and new requirements
+    const [newBillFormData, setNewBillFormData] = useState({
         voucher_no: '',
         date: '',
         amount: '',
-        expense_type: '',
-        purchased_by: '',
-        paid_at: '',
-        approved_by: ''
+        description: '',
+        expense_type: '', // Corresponds to 'category_id' in your old code
+        subcategory_id: '', // Corresponds to 'sub_head'
+        approved_by: '', // Add this field
     });
     const [billImage, setBillImage] = useState(null);
-    const [statusMessage, setStatusMessage] = useState('');
-    const [showBillForm, setShowBillForm] = useState(false);
+
 
     const [selectedIds, setSelectedIds] = useState({ dailyExpenseId: null, monthId: null, categoryId: null, subcategoryId: null });
     const axiosPrivate = useAxiosPrivate();
@@ -39,14 +47,28 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
     const [voucherSearchResults, setVoucherSearchResults] = useState([]);
     const [voucherSearchLoading, setVoucherSearchLoading] = useState(false);
     const [voucherSearchError, setVoucherSearchError] = useState('');
-    
-    // NEW: State to hold the selected bill from search
+
+    // State to hold the selected bill from search
     const [selectedBill, setSelectedBill] = useState(null);
-    // NEW: State for all project bills
+    // State for all project bills
     const [allProjectBills, setAllProjectBills] = useState([]);
 
+    // Dynamic sizing utility function
+    const getBoxSizeClasses = (totalCount) => {
+        if (totalCount <= 1) {
+            return "w-[200px] h-[200px]"; // Big size for 1 item
+        } else if (totalCount === 2) {
+            return "w-[180px] h-[180px]"; // Medium-large for 2 items
+        } else if (totalCount === 3) {
+            return "w-[160px] h-[160px]"; // Medium for 3 items
+        } else if (totalCount === 4) {
+            return "w-[150px] h-[150px]"; // Medium-small for 4 items
+        } else {
+            return "w-[140px] h-[140px]"; // Minimum size for 5+ items
+        }
+    };
+
     const handleVoucherSearch = async () => {
-        // ADDED: Prevent search if query is empty or just whitespace
         if (!voucherSearchQuery.trim()) {
             setVoucherSearchResults([]);
             return;
@@ -67,29 +89,44 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
         }
     };
 
-    // NEW: Function to fetch all bills for the project using the search endpoint
+    // Updated to fetch months instead of all bills
     const fetchAllProjectBills = async () => {
         setLoading(true);
         setError(null);
         try {
-            const resp = await axiosPrivate.get(`projects/${projectId}/bills/search/`);
-            setAllProjectBills(resp.data);
+            const resp = await axiosPrivate.get(`projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/`);
+            setMonthlyExpenses(resp.data);
             setLoading(false);
-            setView('allBills');
+            setView('allBillsMonths');
         } catch (err) {
-            setError('Failed to fetch all bills.');
+            setError('Failed to fetch monthly expenses.');
             setLoading(false);
             console.error("Error fetching all bills:", err);
         }
     };
 
-    // NEW: Handler to view a single bill
+    // New function to fetch bills for a specific month
+    const fetchBillsForMonth = async (monthId) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const resp = await axiosPrivate.get(`projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${monthId}/bills/`);
+            setAllProjectBills(resp.data);
+            setLoading(false);
+            setView('allBills');
+        } catch (err) {
+            setError('Failed to fetch bills for this month.');
+            setLoading(false);
+            console.error("Error fetching bills for month:", err);
+        }
+    }
+
+
     const handleViewBill = (bill) => {
         setSelectedBill(bill);
         setView('singleBillView');
     };
 
-    // Fetch data based on the current view and selected IDs
     const fetchData = async () => {
         setLoading(true);
         setError(null);
@@ -106,6 +143,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                     url = `projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/`;
                     response = await axiosPrivate.get(url);
                     setMonthlyExpenses(response.data);
+                    // The categories will be fetched when the user starts the bill creation flow.
                     break;
                 case 'categories':
                     url = `projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${selectedIds.monthId}/categories/`;
@@ -116,11 +154,6 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                     url = `projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${selectedIds.monthId}/categories/${selectedIds.categoryId}/subcategories/`;
                     response = await axiosPrivate.get(url);
                     setSubcategories(response.data);
-                    break;
-                case 'bills':
-                    url = `projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${selectedIds.monthId}/categories/${selectedIds.categoryId}/subcategories/${selectedIds.subcategoryId}/bills/`;
-                    response = await axiosPrivate.get(url);
-                    setBills(response.data);
                     break;
                 default:
                     break;
@@ -133,60 +166,187 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
         }
     };
 
+    // New function to re-fetch monthly expenses
+    const fetchMonthlyExpenses = async () => {
+        try {
+            if (selectedIds.dailyExpenseId) {
+                const url = `projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/`;
+                const response = await axiosPrivate.get(url);
+                setMonthlyExpenses(response.data);
+            }
+        } catch (err) {
+            console.error("Failed to fetch monthly expenses:", err);
+        }
+    };
+
+    // New function to re-fetch categories
+    const fetchCategories = async () => {
+        try {
+            if (selectedIds.dailyExpenseId && selectedIds.monthId) {
+                const url = `projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${selectedIds.monthId}/categories/`;
+                const response = await axiosPrivate.get(url);
+                setCategories(response.data);
+            }
+        } catch (err) {
+            console.error("Failed to fetch categories:", err);
+        }
+    };
+
     useEffect(() => {
-        if (projectId && headId) {
-            if (view !== 'singleBillView' && view !== 'allBills') {
+        if (projectId && headId && !isCreatingBill && !['singleBillView', 'allBills', 'billActions', 'allBillsMonths'].includes(view)) {
+            // Only fetch if required IDs are present based on the current view
+            const shouldFetch = 
+                (view === 'dailyExpenses') ||
+                (view === 'monthlyExpenses' && selectedIds.dailyExpenseId) ||
+                (view === 'categories' && selectedIds.dailyExpenseId && selectedIds.monthId) ||
+                (view === 'subcategories' && selectedIds.dailyExpenseId && selectedIds.monthId && selectedIds.categoryId);
+
+            if (shouldFetch) {
                 fetchData();
             }
         }
-    }, [projectId, headId, selectedIds.dailyExpenseId, selectedIds.monthId, selectedIds.categoryId, selectedIds.subcategoryId, view]);
+    }, [projectId, headId, selectedIds.dailyExpenseId, selectedIds.monthId, selectedIds.categoryId, selectedIds.subcategoryId, view, isCreatingBill]);
+
+    // New useEffect to fetch categories for the bill creation form
+    useEffect(() => {
+        const fetchCategoriesForBill = async () => {
+            if (isCreatingBill && billCreationStep === 'enterDetails' && selectedMonthForBill) {
+                try {
+                    const url = `projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${selectedMonthForBill}/categories/`;
+                    const response = await axiosPrivate.get(url);
+                    setCategories(response.data);
+                } catch (err) {
+                    console.error("Failed to fetch categories for bill creation:", err);
+                    setStatusMessage('Failed to load categories for bill creation.');
+                }
+            }
+        };
+        fetchCategoriesForBill();
+    }, [isCreatingBill, billCreationStep, selectedMonthForBill]);
+
+    // New useEffect to fetch subcategories when a category is selected in the bill form
+    useEffect(() => {
+        const fetchSubcategories = async () => {
+            const { expense_type } = newBillFormData; // Updated to use expense_type
+            if (expense_type) {
+                try {
+                    const url = `projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${selectedMonthForBill}/categories/${expense_type}/subcategories/`;
+                    const response = await axiosPrivate.get(url);
+                    setSubcategories(response.data);
+                } catch (err) {
+                    console.error("Failed to fetch subcategories:", err);
+                    setStatusMessage('Failed to load subcategories.');
+                }
+            } else {
+                setSubcategories([]);
+            }
+        };
+        fetchSubcategories();
+    }, [newBillFormData.expense_type]); // Updated dependency
 
     // Handlers for navigation
     const handleSelectDailyExpense = (id) => {
-        setSelectedIds(prev => ({ ...prev, dailyExpenseId: id }));
+        setSelectedIds(prev => ({ ...prev, dailyExpenseId: id, monthId: null, categoryId: null, subcategoryId: null }));
         setView('monthlyExpenses');
     };
 
     const handleSelectMonthlyExpense = (id) => {
-        setSelectedIds(prev => ({ ...prev, monthId: id }));
+        setSelectedIds(prev => ({ ...prev, monthId: id, categoryId: null, subcategoryId: null }));
         setView('categories');
     };
 
     const handleSelectCategory = (id) => {
-        setSelectedIds(prev => ({ ...prev, categoryId: id }));
+        setSelectedIds(prev => ({ ...prev, categoryId: id, subcategoryId: null }));
         setView('subcategories');
     };
 
     const handleSelectSubCategory = (id) => {
         setSelectedIds(prev => ({ ...prev, subcategoryId: id }));
+        // Find the selected subcategory from the state and use its nested bills
+        const selectedSubcategory = subcategories.find(sub => sub.id === id);
+        if (selectedSubcategory && selectedSubcategory.bills) {
+            setBills(selectedSubcategory.bills);
+        } else {
+            setBills([]);
+        }
         setView('bills');
-    };
+    }
 
+    // Updated handleBack logic
     const handleBack = () => {
+        if (isCreatingBill) {
+            // If in bill creation flow, handle steps back
+            if (billCreationStep === 'enterDetails') {
+                setBillCreationStep('selectMonth');
+                setSelectedMonthForBill(null);
+            } else { // 'selectMonth'
+                setIsCreatingBill(false);
+                setBillCreationStep('selectMonth'); // Reset for next time
+                setSelectedMonthForBill(null);
+                setNewBillFormData({ // Clear form data
+                    voucher_no: '', date: '', amount: '', description: '',
+                    expense_type: '', subcategory_id: '', approved_by: ''
+                });
+                setBillImage(null);
+            }
+            return; // Exit here if handled by bill creation back
+        }
+
+        // Clear error and loading states when navigating back
+        setError(null);
+        setLoading(false);
+
         switch (view) {
             case 'monthlyExpenses':
                 setView('dailyExpenses');
-                setSelectedIds(prev => ({ ...prev, dailyExpenseId: null }));
+                setSelectedIds({
+                    dailyExpenseId: null,
+                    monthId: null,
+                    categoryId: null,
+                    subcategoryId: null
+                });
                 break;
             case 'categories':
                 setView('monthlyExpenses');
-                setSelectedIds(prev => ({ ...prev, monthId: null }));
+                setSelectedIds(prev => ({
+                    ...prev,
+                    monthId: null,
+                    categoryId: null,
+                    subcategoryId: null
+                }));
                 break;
             case 'subcategories':
                 setView('categories');
-                setSelectedIds(prev => ({ ...prev, categoryId: null }));
+                setSelectedIds(prev => ({
+                    ...prev,
+                    categoryId: null,
+                    subcategoryId: null
+                }));
                 break;
             case 'bills':
                 setView('subcategories');
-                setSelectedIds(prev => ({ ...prev, subcategoryId: null }));
+                setSelectedIds(prev => ({
+                    ...prev,
+                    subcategoryId: null
+                }));
+                setBills([]); // Clear bills when going back
                 break;
-            // NEW: Back logic for the single bill view
             case 'singleBillView':
-                setView('monthlyExpenses');
+                if (bills.length > 0) {
+                    setView('bills');
+                } else {
+                    setView('allBills');
+                }
                 setSelectedBill(null);
                 break;
-            // NEW: Back logic for the all bills view
             case 'allBills':
+                setView('allBillsMonths');
+                setAllProjectBills([]); // Clear bills when going back
+                break;
+            case 'allBillsMonths':
+                setView('billActions');
+                break;
+            case 'billActions':
                 setView('monthlyExpenses');
                 break;
             default:
@@ -200,12 +360,12 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
         setStatusMessage('');
         try {
             await axiosPrivate.post(`projects/${projectId}/heads/${headId}/expenses/`, { title: newExpenseTitle });
-            setStatusMessage('Daily expense created successfully!');
+            setStatusMessage('Yearly sheet created successfully!');
             setNewExpenseTitle('');
             fetchData();
         } catch (err) {
-            setStatusMessage('Failed to create daily expense.');
-            console.error("Error creating daily expense:", err);
+            setStatusMessage('Failed to create yearly sheet.');
+            console.error("Error creating yearly sheet:", err);
         }
     };
 
@@ -236,62 +396,130 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
             console.error("Error creating category:", err);
         }
     };
-
     const handleCreateSubCategory = async (e) => {
         e.preventDefault();
         setStatusMessage('');
         try {
             await axiosPrivate.post(`projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${selectedIds.monthId}/categories/${selectedIds.categoryId}/subcategories/`, { title: newSubCategoryTitle });
-            setStatusMessage('Subcategory created successfully!');
+            setStatusMessage('SubCategory created successfully!');
             setNewSubCategoryTitle('');
             fetchData();
         } catch (err) {
-            setStatusMessage('Failed to create subcategory.');
-            console.error("Error creating subcategory:", err);
+            setStatusMessage('Failed to create SubCategory.');
+            console.error("Error creating SubCategory:", err);
         }
     };
 
-    const handleCreateBill = async (e) => {
+    // New Bill Creation Logic
+    const handleSelectMonthForBill = (monthId) => {
+        setSelectedMonthForBill(monthId);
+        setBillCreationStep('enterDetails');
+    };
+
+    const handleNewBillFormChange = (e) => {
+        const { name, value } = e.target;
+        setNewBillFormData(prev => ({ ...prev, [name]: value }));
+        // If category changes, reset subcategory
+        if (name === 'expense_type') {
+            setNewBillFormData(prev => ({ ...prev, subcategory_id: '' }));
+        }
+    };
+
+    const handleBillImageChange = (e) => {
+        setBillImage(e.target.files[0]);
+    };
+
+    const submitNewBill = async (e) => {
         e.preventDefault();
         setStatusMessage('');
-
-        const formData = new FormData();
-        formData.append('voucher_no', newBill.voucher_no);
-        formData.append('date', newBill.date);
-        formData.append('amount', newBill.amount);
-        formData.append('expense_type', newBill.expense_type);
-        formData.append('purchased_by', newBill.purchased_by);
-        formData.append('paid_at', newBill.paid_at);
-        formData.append('approved_by', newBill.approved_by);
-        if (billImage) {
-            formData.append('bill_image', billImage);
+        if (!selectedIds.dailyExpenseId || !selectedMonthForBill) {
+            setStatusMessage('Error: Daily expense or month not selected.');
+            return;
         }
 
         try {
-            await axiosPrivate.post(`projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${selectedIds.monthId}/categories/${selectedIds.categoryId}/subcategories/${selectedIds.subcategoryId}/bills/`, formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
+            const formData = new FormData();
+            formData.append('voucher_no', newBillFormData.voucher_no);
+            formData.append('date', newBillFormData.date);
+            formData.append('amount', newBillFormData.amount);
+            formData.append('description', newBillFormData.description);
+            formData.append('month_id', selectedMonthForBill);
+            formData.append('category_id', newBillFormData.expense_type);
+            formData.append('subcategory_id', newBillFormData.subcategory_id);
+            formData.append('approved_by', newBillFormData.approved_by);
+
+            if (billImage) {
+                formData.append('bill_image', billImage);
+            }
+
+            // Debug logging
+            console.log('Submitting bill with data:', {
+                voucher_no: newBillFormData.voucher_no,
+                date: newBillFormData.date,
+                amount: newBillFormData.amount,
+                description: newBillFormData.description,
+                month_id: selectedMonthForBill,
+                category_id: newBillFormData.expense_type,
+                subcategory_id: newBillFormData.subcategory_id,
+                approved_by: newBillFormData.approved_by
             });
+
+            const createBillUrl = `projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${selectedMonthForBill}/bills/`;
+            
+            const response = await axiosPrivate.post(createBillUrl, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            console.log('Bill creation response:', response.data);
+
+            // Remove this validation check since the backend already validates
+            // if (!response.data.category || !response.data.subcategory) {
+            //     throw new Error('Category or subcategory not saved properly');
+            // }
+
             setStatusMessage('Bill created successfully!');
-            setNewBill({
+            
+            // Reset form and state
+            setIsCreatingBill(false);
+            setBillCreationStep('selectMonth');
+            setSelectedMonthForBill(null);
+            setNewBillFormData({
                 voucher_no: '',
                 date: '',
                 amount: '',
+                description: '',
                 expense_type: '',
-                purchased_by: '',
-                paid_at: '',
+                subcategory_id: '',
                 approved_by: ''
             });
             setBillImage(null);
-            fetchData();
+
+            // Refresh the data
+            if (selectedIds.subcategoryId) {
+                const subcategoryUrl = `projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${selectedMonthForBill}/categories/${newBillFormData.expense_type}/subcategories/`;
+                const subcategoriesResponse = await axiosPrivate.get(subcategoryUrl);
+                setSubcategories(subcategoriesResponse.data);
+                
+                // Also refresh the bills list
+                const selectedSubcategory = subcategoriesResponse.data.find(sub => sub.id === selectedIds.subcategoryId);
+                if (selectedSubcategory && selectedSubcategory.bills) {
+                    setBills(selectedSubcategory.bills);
+                }
+            }
+
         } catch (err) {
-            setStatusMessage(`Failed to create bill. Error: ${err.response?.data?.non_field_errors || err.response?.data?.voucher_no || 'Unknown error'}`);
-            console.error("Error creating bill:", err);
+            console.error("Error creating bill:", err.response?.data || err);
+            const errorMessage = err.response?.data?.detail || err.response?.data || err.message || 'Unknown error';
+            setStatusMessage(`Failed to create bill: ${errorMessage}`);
         }
     };
 
+
     const BillCard = ({ bill, detailed = false }) => {
+        // Use the new, more efficient category_name and subcategory_name fields if they exist
+        const categoryName = bill.category_name || (categories.find(cat => cat.id === bill.category)?.title) || 'N/A';
+        const subcategoryName = bill.subcategory_name || (subcategories.find(subcat => subcat.id === bill.subcategory)?.title) || 'N/A';
+
         return (
             <div className={`bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200 ${!detailed ? 'cursor-pointer' : ''}`} onClick={!detailed ? () => handleViewBill(bill) : null}>
                 <div className="flex items-start justify-between mb-4">
@@ -302,7 +530,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                             </svg>
                         </div>
                         <div>
-                            <h3 className="text-lg font-semibold text-gray-900">{bill.expense_type}</h3>
+                            <h3 className="text-lg font-semibold text-gray-900">{categoryName}</h3>
                             <div className="flex items-center text-sm text-gray-500 mt-1">
                                 <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4h3a2 2 0 012 2v1a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2h2z"></path>
@@ -340,42 +568,41 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                 </svg>
                                 <div>
                                     <p className="text-gray-500">Expense Type</p>
-                                    <p className="font-medium text-gray-900">{bill.expense_type}</p>
+                                    <p className="font-medium text-gray-900">{categoryName}</p>
                                 </div>
                             </div>
-
-                            <div className="flex items-center">
-                                <svg className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                </svg>
-                                <div>
-                                    <p className="text-gray-500">Paid At</p>
-                                    <p className="font-medium text-gray-900">{bill.paid_at}</p>
+                            {bill.description && (
+                                <div className="flex items-center col-span-1 sm:col-span-2">
+                                    <svg className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                    </svg>
+                                    <div>
+                                        <p className="text-gray-500">Description</p>
+                                        <p className="font-medium text-gray-900">{bill.description}</p>
+                                    </div>
                                 </div>
-                            </div>
-
+                            )}
+                            {subcategoryName && (
+                                <div className="flex items-center">
+                                    <svg className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                                    </svg>
+                                    <div>
+                                        <p className="text-gray-500">Sub-Head</p>
+                                        <p className="font-medium text-gray-900">{subcategoryName}</p>
+                                    </div>
+                                </div>
+                            )}
                             <div className="flex items-center">
                                 <svg className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                                 </svg>
                                 <div>
-                                    <p className="text-gray-500">Purchased By</p>
-                                    <p className="font-medium text-gray-900">{bill.purchased_by}</p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center">
-                                <svg className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
-                                <div>
                                     <p className="text-gray-500">Approved By</p>
-                                    <p className="font-medium text-green-600">{bill.approved_by}</p>
+                                    <p className="font-medium text-gray-900">{bill.approved_by}</p>
                                 </div>
                             </div>
                         </div>
-
                         {bill.bill_image && (
                             <div className="mt-4 pt-4 border-t border-gray-100">
                                 <a
@@ -398,12 +625,196 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
         );
     };
 
+    const renderBillCreationForm = () => {
+        if (!isCreatingBill) return null;
+
+        if (billCreationStep === 'selectMonth') {
+            const totalMonths = monthlyExpenses.length + 1; // +1 for the Add New button (not counted in actual sizing)
+            const boxSize = getBoxSizeClasses(monthlyExpenses.length);
+
+            return (
+                <div className="min-h-screen bg-gray-50 p-4">
+                    <div className="w-full max-w-4xl mx-auto">
+                        <div className="bg-blue-600 p-4 rounded-xl shadow-md mb-10 text-center">
+                            <h1 className="text-4xl font-extrabold text-white">Select Month for Bill</h1>
+                        </div>
+                        <p className="text-lg text-gray-700 mb-6 text-center">
+                            Choose the monthly expense sheet where you want to add the new bill.
+                        </p>
+                        <div className="flex flex-wrap justify-center gap-3">
+                            {monthlyExpenses.length > 0 ? (
+                                monthlyExpenses.map((month) => (
+                                    <div
+                                        key={month.id}
+                                        onClick={() => handleSelectMonthForBill(month.id)}
+                                        className={`bg-white rounded-xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 ${boxSize} flex flex-col items-center justify-center`}
+                                    >
+                                        <h3 className="text-lg font-semibold text-gray-700 mb-2 text-center">{month.title}</h3>
+                                        <p className="text-gray-500 text-sm text-center">Rs {month.total_amount ? month.total_amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : 'none'}</p>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="bg-white rounded-2xl shadow-lg p-6 text-center border border-gray-100">
+                                    <p className="text-gray-500">No monthly expenses found. Please create one first.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        } else if (billCreationStep === 'enterDetails') {
+            const selectedMonthTitle = monthlyExpenses.find(m => m.id === selectedMonthForBill)?.title || 'Selected Month';
+
+            return (
+                <div className="min-h-screen bg-gray-50 p-4">
+                    <div className="w-full max-w-4xl mx-auto">
+                        <div className="bg-blue-600 p-4 rounded-xl shadow-md mb-10 text-center">
+                            <h1 className="text-4xl font-extrabold text-white">Create Bill for {selectedMonthTitle}</h1>
+                        </div>
+                        <form onSubmit={submitNewBill} className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100 space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+                                    <input
+                                        type="date"
+                                        id="date"
+                                        name="date"
+                                        value={newBillFormData.date}
+                                        onChange={handleNewBillFormChange}
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="voucher_no" className="block text-sm font-medium text-gray-700 mb-1">Voucher No. *</label>
+                                    <input
+                                        type="text"
+                                        id="voucher_no"
+                                        name="voucher_no"
+                                        value={newBillFormData.voucher_no}
+                                        onChange={handleNewBillFormChange}
+                                        placeholder="e.g., 0001"
+                                        className="w-full p-3 mb-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">Amount *</label>
+                                    <input
+                                        type="number"
+                                        id="amount"
+                                        name="amount"
+                                        value={newBillFormData.amount}
+                                        onChange={handleNewBillFormChange}
+                                        placeholder="0.00"
+                                        step="0.01"
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    />
+                                </div>
+                                <div className="col-span-1 md:col-span-2">
+                                    <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
+                                    <textarea
+                                        id="description"
+                                        name="description"
+                                        rows="3"
+                                        value={newBillFormData.description}
+                                        onChange={handleNewBillFormChange}
+                                        placeholder="Enter detailed description of the expense"
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    ></textarea>
+                                </div>
+                                <div>
+                                    <label htmlFor="expense_type" className="block text-sm font-medium text-gray-700 mb-1">Expense Type (Head) *</label>
+                                    <select
+                                        id="expense_type"
+                                        name="expense_type"
+                                        value={newBillFormData.expense_type}
+                                        onChange={handleNewBillFormChange}
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    >
+                                        <option value="">Select a Head</option>
+                                        {categories.map(category => (
+                                            <option key={category.id} value={category.id}>{category.title}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label htmlFor="subcategory_id" className="block text-sm font-medium text-gray-700 mb-1">Sub-Head *</label>
+                                    <select
+                                        id="subcategory_id"
+                                        name="subcategory_id"
+                                        value={newBillFormData.subcategory_id}
+                                        onChange={handleNewBillFormChange}
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                        disabled={!newBillFormData.expense_type}
+                                    >
+                                        <option value="">Select a Sub-Head</option>
+                                        {subcategories.map(sub => (
+                                            <option key={sub.id} value={sub.id}>{sub.title}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label htmlFor="approved_by" className="block text-sm font-medium text-gray-700 mb-1">Approved By *</label>
+                                    <input
+                                        type="text"
+                                        id="approved_by"
+                                        name="approved_by"
+                                        value={newBillFormData.approved_by}
+                                        onChange={handleNewBillFormChange}
+                                        placeholder="Enter name of approver"
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label htmlFor="bill_image" className="block text-sm font-medium text-gray-700 mb-1">Bill Image</label>
+                                <input
+                                    type="file"
+                                    id="bill_image"
+                                    name="bill_image"
+                                    onChange={handleBillImageChange}
+                                    className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                />
+                            </div>
+
+                            <button
+                                type="submit"
+                                className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                            >
+                                Add Bill
+                            </button>
+                            {statusMessage && (
+                                <p className={`mt-4 text-center text-sm font-medium ${statusMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
+                                    {statusMessage}
+                                </p>
+                            )}
+                        </form>
+                    </div>
+                </div>
+            );
+        }
+        return null;
+    };
+
     const renderContent = () => {
         if (loading) return <div className="text-center p-8 text-lg text-neutral-600">Loading {view}...</div>;
         if (error) return <div className="text-center p-8 text-lg text-red-600 font-semibold">{error}</div>;
 
+        if (isCreatingBill) {
+            return renderBillCreationForm();
+        }
+
         switch (view) {
             case 'dailyExpenses':
+                const dailyExpensesTotalCount = dailyExpenses.length + 1; // +1 for the Add New button
+                const dailyBoxSize = getBoxSizeClasses(dailyExpenses.length);
+                
                 return (
                     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
                         <div className="w-full max-w-4xl">
@@ -412,205 +823,260 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                     Daily Expenses
                                 </h1>
                             </div>
-
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-                                {/* Add New Yearly Sheet - Moved to the top */}
-                                <div className="flex flex-col items-center justify-center">
-                                    <div
-                                        onClick={() => {
-                                            const title = prompt('Enter yearly sheet title (e.g., "June-2025 to June-2026"):');
-                                            if (title) {
-                                                setNewExpenseTitle(title);
-                                                const submitForm = async () => {
-                                                    setStatusMessage('');
-                                                    try {
-                                                        await axiosPrivate.post(`projects/${projectId}/heads/${headId}/expenses/`, { title });
-                                                        setStatusMessage('Yearly sheet created successfully!');
-                                                        setNewExpenseTitle('');
-                                                        fetchData();
-                                                    } catch (err) {
-                                                        setStatusMessage('Failed to create yearly sheet.');
-                                                        console.error("Error creating yearly sheet:", err);
-                                                    }
-                                                };
-                                                submitForm();
+                            <div className="flex flex-wrap justify-center gap-3">
+                                {/* Add New Yearly Sheet */}
+                                <div onClick={() => {
+                                    const title = prompt('Enter yearly sheet title (e.g., "June-2025 to June-2026"):');
+                                    if (title) {
+                                        setNewExpenseTitle(title);
+                                        const submitForm = async () => {
+                                            setStatusMessage('');
+                                            try {
+                                                await axiosPrivate.post(`projects/${projectId}/heads/${headId}/expenses/`, { title });
+                                                setStatusMessage('Yearly sheet created successfully!');
+                                                setNewExpenseTitle('');
+                                                fetchData();
+                                            } catch (err) {
+                                                setStatusMessage('Failed to create yearly sheet.');
+                                                console.error("Error creating yearly sheet:", err);
                                             }
-                                        }}
-                                        className="bg-white rounded-2xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center min-h-[96px] w-full max-w-xs"
-                                    >
-                                        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                                            <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                            </svg>
-                                        </div>
-                                        <p className="text-gray-600 font-medium text-center">Add New Yearly Sheet</p>
+                                        };
+                                        submitForm();
+                                    }
+                                }} className={`bg-white rounded-xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center ${dailyBoxSize}`} >
+                                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
+                                        <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                        </svg>
                                     </div>
-                                    {statusMessage && (
-                                        <p className={`mt-4 text-center text-sm font-medium ${statusMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
-                                            {statusMessage}
-                                        </p>
-                                    )}
+                                    <p className="text-gray-600 font-medium text-center text-sm">Add New Yearly Sheet</p>
                                 </div>
-
-                                {/* Existing Yearly Sheets - Moved below */}
-                                <div className="space-y-4">
-                                    {dailyExpenses.length > 0 ? (
-                                        dailyExpenses.map((expense) => (
-                                            <div
-                                                key={expense.id}
-                                                onClick={() => handleSelectDailyExpense(expense.id)}
-                                                className="bg-white rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100"
-                                            >
-                                                <h3 className="text-xl font-semibold text-gray-700 mb-2">{expense.title}</h3>
-                                                <p className="text-gray-500 text-sm">Total expenses till now: Rs {expense.total_amount ? expense.total_amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : 'none'}</p>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hidden lg:block">
-                                            
+                                {/* Existing Yearly Sheets */}
+                                {dailyExpenses.length > 0 && (
+                                    dailyExpenses.map((expense) => (
+                                        <div key={expense.id} onClick={() => handleSelectDailyExpense(expense.id)} className={`bg-white rounded-xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center ${dailyBoxSize}`} >
+                                            <h3 className="text-lg font-semibold text-gray-700 mb-2 text-center">{expense.title}</h3>
+                                            <p className="text-gray-500 text-sm text-center">Rs {expense.total_amount ? expense.total_amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : 'none'}</p>
                                         </div>
-                                    )}
-                                </div>
+                                    ))
+                                )}
                             </div>
-                        </div>
-                    </div>
-                );
-            case 'monthlyExpenses':
-                return (
-                    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-                        <div className="w-full max-w-6xl">
-                            {/* Header */}
-                            <div className="bg-blue-600 p-4 rounded-xl shadow-md mb-12 text-center">
-                                <h1 className="text-4xl font-extrabold text-white relative pb-2 after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:w-16 after:h-1 after:bg-blue-500 after:rounded-full">
-                                    {dailyExpenses.find(e => e.id === selectedIds.dailyExpenseId)?.title || 'June-2025 – June-2026'}
-                                </h1>
-                            </div>
-
-                            {/* UPDATED: Search bar and new "All Bills" button moved to the top */}
-                            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 relative">
-                                {/* Voucher search bar and button */}
-                                <div className="flex-1 w-full sm:w-auto">
-                                    <div className="flex items-center space-x-2">
-                                        <input
-                                            type="text"
-                                            placeholder="Search voucher number"
-                                            value={voucherSearchQuery}
-                                            onChange={e => setVoucherSearchQuery(e.target.value)}
-                                            className="border border-gray-300 rounded px-3 py-2 text-sm w-full"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={handleVoucherSearch}
-                                            className="bg-blue-600 text-white font-semibold px-4 py-2 rounded"
-                                        >
-                                            Search
-                                        </button>
-                                    </div>
-                                    {voucherSearchLoading && (
-                                        <div className="text-blue-600 text-sm mt-2">Searching...</div>
-                                    )}
-                                    {voucherSearchError && (
-                                        <div className="text-red-600 text-sm mt-2">{voucherSearchError}</div>
-                                    )}
-                                    {/* UPDATED: Search results are now styled like the BillCard */}
-                                    {voucherSearchResults && voucherSearchResults.length > 0 && (
-                                        <div className="absolute top-full left-0 right-0 z-20 mt-2 bg-white rounded-xl shadow-lg border border-gray-200 p-4 max-h-60 overflow-y-auto">
-                                            <h4 className="text-lg font-bold text-gray-800 mb-2">Search Results ({voucherSearchResults.length})</h4>
-                                            <div className="grid gap-3">
-                                                {voucherSearchResults.map((bill) => (
-                                                    <BillCard key={bill.id} bill={bill} />
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                                {/* NEW: All Bills button */}
-                                <div className="w-full sm:w-auto mt-4 sm:mt-0">
-                                    <button
-                                        type="button"
-                                        onClick={fetchAllProjectBills}
-                                        className="w-full bg-green-600 text-white font-semibold px-4 py-2 rounded shadow-md hover:bg-green-700 transition-colors duration-200"
-                                    >
-                                        All Bills
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
-                                {/* Add New Month Sheet Button - Moved to the top */}
-                                <div>
-                                    <div
-                                        onClick={() => {
-                                            const title = prompt('Enter month name (e.g., "June 2025"):');
-                                            if (title) {
-                                                setNewMonthlyTitle(title);
-                                                const submitForm = async () => {
-                                                    setStatusMessage('');
-                                                    try {
-                                                        await axiosPrivate.post(`projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/`, { title });
-                                                        setStatusMessage('Monthly expense created successfully!');
-                                                        setNewMonthlyTitle('');
-                                                        fetchData();
-                                                    } catch (err) {
-                                                        setStatusMessage('Failed to create monthly expense.');
-                                                        console.error("Error creating monthly expense:", err);
-                                                    }
-                                                };
-                                                submitForm();
-                                            }
-                                        }}
-                                        className="bg-white rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border-2 border-dashed border-gray-300 hover:border-blue-400 min-h-[120px] flex flex-col items-center justify-center"
-                                    >
-                                        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
-                                            <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                            </svg>
-                                        </div>
-                                        <p className="text-gray-600 font-medium text-center text-sm">Add New Month Sheet</p>
-                                    </div>
-                                </div>
-                                {/* Existing monthly expenses - Moved below */}
-                                {monthlyExpenses.map((month) => (
-                                    <div
-                                        key={month.id}
-                                        onClick={() => handleSelectMonthlyExpense(month.id)}
-                                        className="bg-white rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 min-h-[120px] flex flex-col items-center justify-center"
-                                    >
-                                        <h3 className="text-lg font-semibold text-gray-700 text-center">{month.title}</h3>
-                                        <p className="text-lg font-bold text-blue-600 mt-2">
-                                            Rs {month.total_amount ? parseFloat(month.total_amount).toLocaleString('en-IN') : '0'}
-                                        </p>
-                                    </div>
-                                ))}
-                            </div>
-                            
                             {statusMessage && (
-                                <div className="text-center">
-                                    <p className={`text-sm font-medium ${statusMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
-                                        {statusMessage}
-                                    </p>
-                                </div>
+                                <p className={`mt-4 text-center text-sm font-medium ${statusMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
+                                    {statusMessage}
+                                </p>
                             )}
                         </div>
                     </div>
                 );
-            case 'categories':
+            case 'monthlyExpenses':
+                const monthlyBoxSize = getBoxSizeClasses(monthlyExpenses.length);
+                
                 return (
-                    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-                        <div className="w-full max-w-6xl">
-                            <div className="bg-blue-600 p-4 rounded-xl shadow-md mb-8 text-center">
-                                <h1 className="text-4xl font-extrabold text-white uppercase tracking-widest animate-pulse">
-                                    Main Heads
-                                </h1>
+                    <div className="min-h-screen bg-gray-50 p-4">
+                        <div className="w-full max-w-4xl mx-auto">
+                            <div className="bg-blue-600 p-4 rounded-xl shadow-md mb-10 text-center">
+                                <h1 className="text-4xl font-extrabold text-white">Monthly Expenses</h1>
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                                {/* Add New Category Card - Moved to the top */}
+
+                            {/* Action Controls Container */}
+                            <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 space-y-4 mb-8">
+                                {/* Search Bar */}
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        placeholder="Search voucher number..."
+                                        className="w-full p-3 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        value={voucherSearchQuery}
+                                        onChange={(e) => setVoucherSearchQuery(e.target.value)}
+                                        onKeyPress={(e) => {
+                                            if (e.key === 'Enter') {
+                                                handleVoucherSearch();
+                                            }
+                                        }}
+                                    />
+                                    <button
+                                        onClick={handleVoucherSearch}
+                                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                        </svg>
+                                    </button>
+                                </div>
+
+                                {/* More Button */}
+                                <button
+                                    onClick={() => setView('billActions')}
+                                    className="w-full bg-gray-600 text-white font-medium rounded-lg shadow-md hover:bg-gray-700 transition-colors duration-200 py-3 flex items-center justify-center space-x-2"
+                                >
+                                    <span>More Actions</span>
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            {/* Show search results if any */}
+                            {voucherSearchQuery && voucherSearchResults.length > 0 && (
+                                <div className="mb-8">
+                                    <h3 className="text-lg font-semibold text-gray-700 mb-3">Search Results</h3>
+                                    <div className="space-y-4">
+                                        {voucherSearchResults.map(bill => (
+                                            <BillCard key={bill.id} bill={bill} />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Monthly Expenses List */}
+                            <div className="flex flex-wrap justify-center gap-3">
+                                {/* Add New Monthly Expense */}
+                                <div className={`bg-white rounded-xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center ${monthlyBoxSize}`}
+                                    onClick={() => {
+                                        const title = prompt('Enter month name (e.g., "January"):');
+                                        if (title) {
+                                            setNewMonthlyTitle(title);
+                                            const submitForm = async () => {
+                                                setStatusMessage('');
+                                                try {
+                                                    await axiosPrivate.post(`projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/`, { title });
+                                                    setStatusMessage('Monthly expense created successfully!');
+                                                    setNewMonthlyTitle('');
+                                                    fetchData();
+                                                } catch (err) {
+                                                    setStatusMessage('Failed to create monthly expense.');
+                                                    console.error("Error creating monthly expense:", err);
+                                                }
+                                            };
+                                            submitForm();
+                                        }
+                                    }}
+                                >
+                                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
+                                        <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                        </svg>
+                                    </div>
+                                    <p className="text-gray-600 font-medium text-center text-sm">Add New Monthly Expense</p>
+                                </div>
+
+                                {/* Existing Monthly Expenses */}
+                                {monthlyExpenses.length > 0 && (
+                                    monthlyExpenses.map((month) => (
+                                        <div key={month.id} onClick={() => handleSelectMonthlyExpense(month.id)} className={`bg-white rounded-xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center ${monthlyBoxSize}`} >
+                                            <h3 className="text-lg font-semibold text-gray-700 mb-2 text-center">{month.title}</h3>
+                                            <p className="text-gray-500 text-sm text-center">Rs {month.total_amount ? month.total_amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : 'none'}</p>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
+            case 'billActions':
+                return (
+                    <div className="min-h-screen bg-gray-50 p-4">
+                        <div className="w-full max-w-4xl mx-auto">
+                            <div className="bg-blue-600 p-4 rounded-xl shadow-md mb-10 text-center">
+                                <h1 className="text-4xl font-extrabold text-white">Bill Actions</h1>
+                            </div>
+                            <p className="text-lg text-gray-700 mb-6 text-center">
+                                Choose an action to perform with bills.
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
                                 <div
                                     onClick={() => {
-                                        const title = prompt('Enter new category name (e.g., "Food Expenses"):');
+                                        if (monthlyExpenses.length > 0) {
+                                            setIsCreatingBill(true);
+                                            setBillCreationStep('selectMonth');
+                                        } else {
+                                            setStatusMessage('Please create a monthly expense first to add bills.');
+                                        }
+                                    }}
+                                    className="bg-white rounded-xl shadow-lg p-8 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center min-h-[200px]"
+                                >
+                                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                                        <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                        </svg>
+                                    </div>
+                                    <p className="text-gray-600 font-semibold text-center text-lg">Create New Bill</p>
+                                </div>
+                                <div
+                                    onClick={fetchAllProjectBills}
+                                    className="bg-white rounded-xl shadow-lg p-8 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center min-h-[200px]"
+                                >
+                                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                                        <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                                        </svg>
+                                    </div>
+                                    <p className="text-gray-600 font-semibold text-center text-lg">View All Bills</p>
+                                </div>
+                            </div>
+                            {statusMessage && (
+                                <p className={`mt-4 text-center text-sm font-medium ${statusMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
+                                    {statusMessage}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                );
+            case 'allBillsMonths':
+                const allBillsMonthsBoxSize = getBoxSizeClasses(monthlyExpenses.length);
+                
+                return (
+                    <div className="min-h-screen bg-gray-50 p-4">
+                        <div className="w-full max-w-4xl mx-auto">
+                            <div className="bg-blue-600 p-4 rounded-xl shadow-md mb-10 text-center">
+                                <h1 className="text-4xl font-extrabold text-white">Select a Month</h1>
+                            </div>
+                            <p className="text-lg text-gray-700 mb-6 text-center">
+                                Select a month to view all its bills.
+                            </p>
+                            <div className="flex flex-wrap justify-center gap-3">
+                                {monthlyExpenses.length > 0 ? (
+                                    monthlyExpenses.map((month) => (
+                                        <div 
+                                            key={month.id} 
+                                            onClick={() => fetchBillsForMonth(month.id)} 
+                                            className={`bg-white rounded-xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center ${allBillsMonthsBoxSize}`}
+                                        >
+                                            <h3 className="text-lg font-semibold text-gray-700 mb-2 text-center">
+                                                {month.title}
+                                            </h3>
+                                            <p className="text-gray-500 text-sm text-center">
+                                                Rs {month.total_amount ? month.total_amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : 'none'}
+                                            </p>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="bg-white rounded-2xl shadow-lg p-6 text-center border border-gray-100">
+                                        <p className="text-gray-500">No monthly expenses found for this yearly sheet.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
+            case 'categories':
+                const categoriesBoxSize = getBoxSizeClasses(categories.length);
+                
+                return (
+                    <div className="min-h-screen bg-gray-50 p-4">
+                        <div className="w-full max-w-4xl mx-auto">
+                            <div className="bg-blue-600 p-4 rounded-xl shadow-md mb-10 text-center">
+                                <h1 className="text-4xl font-extrabold text-white">Categories</h1>
+                            </div>
+
+                            <div className="flex flex-wrap justify-center gap-3">
+                                {/* Add new category button */}
+                                <div className={`bg-white rounded-xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center ${categoriesBoxSize}`}
+                                    onClick={() => {
+                                        const title = prompt('Enter category name (e.g., "Fuel"):');
                                         if (title) {
                                             setNewCategoryTitle(title);
-                                            // Auto-submit
                                             const submitForm = async () => {
                                                 setStatusMessage('');
                                                 try {
@@ -626,196 +1092,141 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                             submitForm();
                                         }
                                     }}
-                                    className="bg-white rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border-2 border-dashed border-gray-300 hover:border-blue-400 min-h-[120px] flex flex-col items-center justify-center"
                                 >
                                     <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
                                         <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                                         </svg>
                                     </div>
-                                    <p className="text-gray-600 font-medium text-center text-sm">Add New Head Expense</p>
+                                    <p className="text-gray-600 font-medium text-center text-sm">Add New Category</p>
                                 </div>
-                                {categories.length > 0 ? (
+
+                                {/* List categories */}
+                                {categories.length > 0 && (
                                     categories.map((category) => (
-                                        <div
-                                            key={category.id}
-                                            onClick={() => handleSelectCategory(category.id)}
-                                            className="bg-white rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 min-h-[120px] flex flex-col items-start justify-center"
-                                        >
-                                            <h3 className="text-xl font-semibold text-gray-700 mb-2">{category.title}</h3>
-                                            <p className="text-2xl font-bold text-green-600">
-                                                Rs {category.total_amount ? parseFloat(category.total_amount).toLocaleString('en-IN') : '0'}
-                                            </p>
+                                        <div key={category.id} onClick={() => handleSelectCategory(category.id)} className={`bg-white rounded-xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center ${categoriesBoxSize}`} >
+                                            <h3 className="text-lg font-semibold text-gray-700 mb-2 text-center">{category.title}</h3>
+                                            <p className="text-gray-500 text-sm text-center">Rs {category.total_amount ? category.total_amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : 'none'}</p>
                                         </div>
                                     ))
-                                ) : (
-                                    <div className="col-span-full text-center py-8">
-                                        <p className="text-gray-500 text-base sm:text-lg">No categories found. Create one to get started!</p>
-                                    </div>
                                 )}
                             </div>
-                            {statusMessage && (
-                                <div className="text-center mt-6">
-                                    <p className={`text-sm font-medium ${statusMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
-                                        {statusMessage}
-                                    </p>
-                                </div>
-                            )}
                         </div>
                     </div>
                 );
             case 'subcategories':
-                // Calculate total amount for all subcategories
-                const totalSubcategoriesAmount = subcategories.reduce((sum, sub) => sum + parseFloat(sub.total_amount || 0), 0);
+                const subcategoriesBoxSize = getBoxSizeClasses(subcategories.length);
+                
                 return (
-                    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-                        <div className="w-full max-w-6xl">
-                            {/* Header */}
-                            <div className="bg-blue-600 p-4 rounded-xl shadow-md mb-12 text-center">
-                                <h1 className="text-4xl font-extrabold text-white font-serif italic">
-                                    {categories.find(c => c.id === selectedIds.categoryId)?.title || 'Petroleum Expenses'}
-                                </h1>
+                    <div className="min-h-screen bg-gray-50 p-4">
+                        <div className="w-full max-w-4xl mx-auto">
+                            <div className="bg-blue-600 p-4 rounded-xl shadow-md mb-10 text-center">
+                                <h1 className="text-4xl font-extrabold text-white">SubCategories</h1>
                             </div>
-                            {/* Total Expense Card */}
-                            <div className="bg-indigo-600 p-6 rounded-xl shadow-lg mb-8 text-center border border-indigo-500">
-                                <p className="text-indigo-200 text-sm mb-2">Total {categories.find(c => c.id === selectedIds.categoryId)?.title || 'Petroleum'} Expenses</p>
-                                <p className="text-4xl font-bold text-white">
-                                    Rs {totalSubcategoriesAmount.toLocaleString()}
-                                </p>
-                            </div>
-                            {/* Grid of Subcategory Cards */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                                {/* Add New Subcategory Card - Moved to the top */}
-                                <div
+
+                            <div className="flex flex-wrap justify-center gap-3">
+                                {/* Add new subcategory button */}
+                                <div className={`bg-white rounded-xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center ${subcategoriesBoxSize}`}
                                     onClick={() => {
-                                        const title = prompt('Enter new subcategory name (e.g., "Car Petroleum"):');
+                                        const title = prompt('Enter subcategory name (e.g., "CNG"):');
                                         if (title) {
                                             setNewSubCategoryTitle(title);
-                                            // Auto-submit
                                             const submitForm = async () => {
                                                 setStatusMessage('');
                                                 try {
                                                     await axiosPrivate.post(`projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${selectedIds.monthId}/categories/${selectedIds.categoryId}/subcategories/`, { title });
-                                                    setStatusMessage('Subcategory created successfully!');
+                                                    setStatusMessage('SubCategory created successfully!');
                                                     setNewSubCategoryTitle('');
                                                     fetchData();
                                                 } catch (err) {
-                                                    setStatusMessage('Failed to create subcategory.');
-                                                    console.error("Error creating subcategory:", err);
+                                                    setStatusMessage('Failed to create SubCategory.');
+                                                    console.error("Error creating SubCategory:", err);
                                                 }
                                             };
                                             submitForm();
                                         }
                                     }}
-                                    className="bg-white rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border-2 border-dashed border-gray-300 hover:border-blue-400 min-h-[120px] flex flex-col items-center justify-center"
                                 >
                                     <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
                                         <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                                         </svg>
                                     </div>
-                                    <p className="text-gray-600 font-medium text-center text-sm">Add New Sub Expense</p>
+                                    <p className="text-gray-600 font-medium text-center text-sm">Add New SubCategory</p>
                                 </div>
-                                {subcategories.length > 0 ? (
-                                    subcategories.map((subcategory) => (
-                                        <div
-                                            key={subcategory.id}
-                                            onClick={() => handleSelectSubCategory(subcategory.id)}
-                                            className="bg-white rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 min-h-[120px] flex flex-col items-start justify-center"
-                                        >
-                                            <h3 className="text-xl font-semibold text-gray-700 mb-2">{subcategory.title}</h3>
-                                            <p className="text-2xl font-bold text-blue-600">
-                                                Rs {subcategory.total_amount ? parseFloat(subcategory.total_amount).toLocaleString('en-IN') : '0'}
-                                            </p>
+
+                                {/* List subcategories */}
+                                {subcategories.length > 0 && (
+                                    subcategories.map((sub) => (
+                                        <div key={sub.id} onClick={() => handleSelectSubCategory(sub.id)} className={`bg-white rounded-xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center ${subcategoriesBoxSize}`} >
+                                            <h3 className="text-lg font-semibold text-gray-700 mb-2 text-center">{sub.title}</h3>
+                                            <p className="text-gray-500 text-sm text-center">Rs {sub.total_amount ? sub.total_amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : 'none'}</p>
                                         </div>
                                     ))
-                                ) : (
-                                    <div className="col-span-full text-center py-8">
-                                        <p className="text-gray-500 text-base sm:text-lg">No subcategories found. Create one to get started!</p>
-                                    </div>
                                 )}
                             </div>
-                            {statusMessage && (
-                                <div className="text-center mt-6">
-                                    <p className={`text-sm font-medium ${statusMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
-                                        {statusMessage}
-                                    </p>
-                                </div>
-                            )}
                         </div>
                     </div>
                 );
             case 'bills':
-                // Calculate total amount for all bills
-                const totalBillsAmount = bills.reduce((sum, bill) => sum + parseFloat(bill.amount || 0), 0);
                 return (
-                    <div className="flex flex-col items-center p-4 sm:p-6 lg:p-8">
-                        <div className="w-full max-w-7xl">
-                            {/* Summary Header */}
-                            <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 mb-6">
-                                <div className="flex items-center mb-4">
-                                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                                        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    <div className="min-h-screen bg-gray-50 p-4">
+                        <div className="w-full max-w-4xl mx-auto">
+                            <div className="bg-blue-600 p-4 rounded-xl shadow-md mb-10 text-center">
+                                <h1 className="text-4xl font-extrabold text-white">Bills</h1>
+                            </div>
+                            <div className="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0 sm:space-x-4 mb-6">
+                                <div className="flex-1 w-full sm:w-auto relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
                                         </svg>
                                     </div>
-                                    <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
-                                        Bills
-                                    </h2>
+                                    <input
+                                        type="text"
+                                        placeholder="Search by voucher number, description, expense type, or sub-head..."
+                                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+                                        value={voucherSearchQuery}
+                                        onChange={(e) => setVoucherSearchQuery(e.target.value)}
+                                        onKeyPress={(e) => {
+                                            if (e.key === 'Enter') handleVoucherSearch();
+                                        }}
+                                    />
                                 </div>
-                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
-                                    <div>
-                                        <p className="text-sm text-gray-500 mb-1">Total Amount Spent</p>
-                                        <p className="text-2xl sm:text-3xl font-bold text-gray-900">
-                                            Rs {totalBillsAmount.toLocaleString()}
-                                        </p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-sm text-gray-500 mb-1">Total Bills</p>
-                                        <p className="text-2xl sm:text-3xl font-bold text-blue-600">{bills.length}</p>
-                                    </div>
+                                <div className="flex space-x-2 w-full sm:w-auto">
+                                    <button onClick={handleVoucherSearch} className="flex-1 sm:flex-none px-6 py-2 bg-blue-600 text-white font-medium rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-200">
+                                        Search
+                                    </button>
+                                    <button onClick={fetchAllProjectBills} className="flex-1 sm:flex-none px-6 py-2 bg-gray-200 text-gray-800 font-medium rounded-lg shadow-md hover:bg-gray-300 transition-colors duration-200">
+                                        View All
+                                    </button>
                                 </div>
                             </div>
-
-                            {/* Toggle Button for Bill Form */}
-                            <button
-                                onClick={() => setShowBillForm(!showBillForm)}
-                                className="w-full px-4 py-3 mb-6 text-sm sm:text-base bg-blue-600 text-white rounded-lg font-semibold shadow-md hover:bg-blue-700 active:bg-blue-800 transition-all duration-200 transform hover:scale-[1.02] flex items-center justify-center"
-                            >
-                                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                </svg>
-                                {showBillForm ? 'Hide Bill Form' : 'Create New Bill'}
-                            </button>
-
-                            {/* Conditional Bill Form */}
-                            {showBillForm && (
-                                <form onSubmit={handleCreateBill} className="mb-6 sm:mb-8 p-4 sm:p-6 bg-white rounded-xl shadow-md border border-gray-200 animate-fade-in-down">
-                                    <h3 className="text-lg sm:text-xl font-semibold mb-4">New Bill</h3>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
-                                        <input type="text" value={newBill.voucher_no} onChange={(e) => setNewBill({ ...newBill, voucher_no: e.target.value })} className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" placeholder="Voucher Number" required />
-                                        <input type="date" value={newBill.date} onChange={(e) => setNewBill({ ...newBill, date: e.target.value })} className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" required />
-                                        <input type="number" value={newBill.amount} onChange={(e) => setNewBill({ ...newBill, amount: e.target.value })} className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" placeholder="Amount" required />
-                                        <input type="text" value={newBill.expense_type} onChange={(e) => setNewBill({ ...newBill, expense_type: e.target.value })} className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" placeholder="Expense Type" required />
-                                        <input type="text" value={newBill.purchased_by} onChange={(e) => setNewBill({ ...newBill, purchased_by: e.target.value })} className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" placeholder="Purchased By" required />
-                                        <input type="text" value={newBill.paid_at} onChange={(e) => setNewBill({ ...newBill, paid_at: e.target.value })} className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" placeholder="Paid At" required />
-                                        <input type="text" value={newBill.approved_by} onChange={(e) => setNewBill({ ...newBill, approved_by: e.target.value })} className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" placeholder="Approved By" required />
-                                        <input type="file" onChange={(e) => setBillImage(e.target.files[0])} className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 file:mr-4 file:py-1 file:px-2 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-                                    </div>
-                                    <button type="submit" className="w-full px-4 py-2 sm:py-3 text-sm sm:text-base bg-blue-600 text-white rounded-lg font-semibold shadow-md hover:bg-blue-700 active:bg-blue-800 transition-all duration-200 transform hover:scale-[1.02]">
-                                        Create Bill
-                                    </button>
-                                </form>
+                            {voucherSearchQuery && (
+                                <div className="mt-4">
+                                    {voucherSearchLoading && <p className="text-gray-500">Searching...</p>}
+                                    {voucherSearchError && <p className="text-red-500">{voucherSearchError}</p>}
+                                    {voucherSearchResults.length > 0 && (
+                                        <div className="space-y-4">
+                                            {voucherSearchResults.map(bill => (
+                                                <BillCard key={bill.id} bill={bill} />
+                                            ))}
+                                        </div>
+                                    )}
+                                    {!voucherSearchLoading && !voucherSearchError && voucherSearchResults.length === 0 && (
+                                        <p className="text-gray-500">No results found.</p>
+                                    )}
+                                </div>
                             )}
-                            {statusMessage && <p className={`mt-3 text-center text-sm sm:text-base font-medium ${statusMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>{statusMessage}</p>}
-                            <div className="grid gap-3 sm:gap-4">
+
+                            <div className="space-y-6 mt-6">
                                 {bills.length > 0 ? (
-                                    bills.map((bill) => (
-                                        <BillCard key={bill.id} bill={bill} detailed={true} />
+                                    bills.map(bill => (
+                                        <BillCard key={bill.id} bill={bill} />
                                     ))
                                 ) : (
-                                    <div className="text-center py-8 sm:py-12">
-                                        <p className="text-gray-500 text-base sm:text-lg">No bills found. Create one above.</p>
+                                    <div className="bg-white rounded-2xl shadow-lg p-6 text-center border border-gray-100">
+                                        <p className="text-gray-500">No bills found for this monthly expense.</p>
                                     </div>
                                 )}
                             </div>
@@ -824,45 +1235,53 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                 );
             case 'singleBillView':
                 return (
-                    <div className="flex flex-col items-center p-4 sm:p-6 lg:p-8">
-                        <div className="w-full max-w-2xl">
-                            <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6 text-center">Bill Details</h2>
-                            {selectedBill ? (
-                                <BillCard bill={selectedBill} detailed={true} />
-                            ) : (
-                                <p className="text-center text-red-500">No bill data found.</p>
-                            )}
+                    <div className="min-h-screen bg-gray-50 p-4">
+                        <div className="w-full max-w-4xl mx-auto">
+                            <div className="bg-blue-600 p-4 rounded-xl shadow-md mb-10 text-center">
+                                <h1 className="text-4xl font-extrabold text-white">Bill Details</h1>
+                            </div>
+                            <div className="space-y-6">
+                                {selectedBill && <BillCard bill={selectedBill} detailed={true} />}
+                            </div>
                         </div>
                     </div>
                 );
             case 'allBills':
-                const allBillsTotalAmount = allProjectBills.reduce((sum, bill) => sum + parseFloat(bill.amount || 0), 0);
                 return (
-                    <div className="flex flex-col items-center p-4 sm:p-6 lg:p-8">
-                        <div className="w-full max-w-7xl">
-                            <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 mb-6">
-                                <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">All Project Bills</h2>
-                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
-                                    <div>
-                                        <p className="text-sm text-gray-500 mb-1">Total Amount Spent</p>
-                                        <p className="text-2xl sm:text-3xl font-bold text-gray-900">
-                                            Rs {allBillsTotalAmount.toLocaleString()}
-                                        </p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-sm text-gray-500 mb-1">Total Bills</p>
-                                        <p className="text-2xl sm:text-3xl font-bold text-blue-600">{allProjectBills.length}</p>
-                                    </div>
-                                </div>
+                    <div className="min-h-screen bg-gray-50 p-4">
+                        <div className="w-full max-w-4xl mx-auto">
+                            <div className="bg-blue-600 p-4 rounded-xl shadow-md mb-10 text-center">
+                                <h1 className="text-4xl font-extrabold text-white">Bills for the Month</h1>
                             </div>
-                            <div className="grid gap-3 sm:gap-4">
+                            <div className="space-y-4">
                                 {allProjectBills.length > 0 ? (
                                     allProjectBills.map((bill) => (
-                                        <BillCard key={bill.id} bill={bill} detailed={true} />
+                                        <div key={bill.id} onClick={() => handleViewBill(bill)} className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl shadow-md border-l-4 border-blue-500 hover:shadow-lg transition-all duration-300 cursor-pointer">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center space-x-4">
+                                                    <div className="h-12 w-12 bg-white rounded-full flex items-center justify-center shadow-sm">
+                                                        <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                                        </svg>
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="text-lg font-semibold text-gray-800">Voucher: {bill.voucher_no}</h3>
+                                                        <p className="text-sm text-gray-600">{new Date(bill.date).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-sm text-gray-600">Amount</p>
+                                                    <p className="text-xl font-bold text-indigo-600">Rs {parseFloat(bill.amount).toLocaleString()}</p>
+                                                </div>
+                                            </div>
+                                            <div className="mt-4 text-sm text-gray-600 line-clamp-2">
+                                                {bill.description}
+                                            </div>
+                                        </div>
                                     ))
                                 ) : (
-                                    <div className="text-center py-8 sm:py-12">
-                                        <p className="text-gray-500 text-base sm:text-lg">No bills found for this project.</p>
+                                    <div className="text-center py-8">
+                                        <p className="text-gray-500 text-lg">No bills found for this month.</p>
                                     </div>
                                 )}
                             </div>
