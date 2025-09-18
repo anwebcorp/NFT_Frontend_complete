@@ -304,7 +304,7 @@ export default function Employee({ user, setUser }) {
               {/* Developer Information */}
               <li
                 className="flex justify-between items-center py-3 px-4 active:bg-neutral-100 cursor-pointer"
-                onClick={() => handleSettingClick("Developer Information", "A&N Corps")}
+                onClick={() => handleSettingClick("Developer Information", "anwebco@gmail.com")}
               >
                 <span className="text-neutral-800">Developer Information</span>
                 <svg className="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

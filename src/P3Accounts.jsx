@@ -515,6 +515,92 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
     };
 
 
+    const BillsTable = ({ billsData, onBillClick = null }) => {
+        if (!billsData || billsData.length === 0) {
+            return (
+                <div className="text-center py-8">
+                    <p className="text-gray-500 text-lg">No bills found.</p>
+                </div>
+            );
+        }
+
+        return (
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full">
+                        <thead className="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DATE</th>
+                                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">VOUCHER NO.</th>
+                                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AMOUNT</th>
+                                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DESCRIPTION</th>
+                                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EXPENSE TYPE</th>
+                                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SUB-HEAD</th>
+                                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IMAGE</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {billsData.map((bill) => {
+                                const categoryName = bill.category_name || (categories.find(cat => cat.id === bill.category)?.title) || 'N/A';
+                                const subcategoryName = bill.subcategory_name || (subcategories.find(subcat => subcat.id === bill.subcategory)?.title) || 'N/A';
+                                
+                                return (
+                                    <tr 
+                                        key={bill.id} 
+                                        className={`hover:bg-gray-50 ${onBillClick ? 'cursor-pointer' : ''}`}
+                                        onClick={onBillClick ? () => onBillClick(bill) : undefined}
+                                    >
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            {new Date(bill.date).toLocaleDateString('en-US', {
+                                                year: 'numeric',
+                                                month: 'short',
+                                                day: '2-digit'
+                                            })}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            {bill.voucher_no}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                                            PKR {parseFloat(bill.amount)}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
+                                            {bill.description}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                {categoryName}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            {subcategoryName}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            {bill.bill_image ? (
+                                                <a
+                                                    href={bill.bill_image}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-blue-600 hover:text-blue-900"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                    </svg>
+                                                </a>
+                                            ) : (
+                                                <span className="text-gray-300">-</span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    };
+
     const BillCard = ({ bill, detailed = false }) => {
         // Use the new, more efficient category_name and subcategory_name fields if they exist
         const categoryName = bill.category_name || (categories.find(cat => cat.id === bill.category)?.title) || 'N/A';
@@ -921,11 +1007,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                             {voucherSearchQuery && voucherSearchResults.length > 0 && (
                                 <div className="mb-8">
                                     <h3 className="text-lg font-semibold text-gray-700 mb-3">Search Results</h3>
-                                    <div className="space-y-4">
-                                        {voucherSearchResults.map(bill => (
-                                            <BillCard key={bill.id} bill={bill} />
-                                        ))}
-                                    </div>
+                                    <BillsTable billsData={voucherSearchResults} onBillClick={handleViewBill} />
                                 </div>
                             )}
 
@@ -1171,7 +1253,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
             case 'bills':
                 return (
                     <div className="min-h-screen bg-gray-50 p-4">
-                        <div className="w-full max-w-4xl mx-auto">
+                        <div className="w-full max-w-6xl mx-auto">
                             <div className="bg-blue-600 p-4 rounded-xl shadow-md mb-10 text-center">
                                 <h1 className="text-4xl font-extrabold text-white">Bills</h1>
                             </div>
@@ -1202,34 +1284,24 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                     </button>
                                 </div>
                             </div>
+                            
                             {voucherSearchQuery && (
                                 <div className="mt-4">
                                     {voucherSearchLoading && <p className="text-gray-500">Searching...</p>}
                                     {voucherSearchError && <p className="text-red-500">{voucherSearchError}</p>}
                                     {voucherSearchResults.length > 0 && (
-                                        <div className="space-y-4">
-                                            {voucherSearchResults.map(bill => (
-                                                <BillCard key={bill.id} bill={bill} />
-                                            ))}
+                                        <div className="mb-6">
+                                            <h3 className="text-lg font-semibold text-gray-700 mb-3">Search Results</h3>
+                                            <BillsTable billsData={voucherSearchResults} onBillClick={handleViewBill} />
                                         </div>
                                     )}
                                     {!voucherSearchLoading && !voucherSearchError && voucherSearchResults.length === 0 && (
-                                        <p className="text-gray-500">No results found.</p>
+                                        <p className="text-gray-500 mb-6">No results found.</p>
                                     )}
                                 </div>
                             )}
 
-                            <div className="space-y-6 mt-6">
-                                {bills.length > 0 ? (
-                                    bills.map(bill => (
-                                        <BillCard key={bill.id} bill={bill} />
-                                    ))
-                                ) : (
-                                    <div className="bg-white rounded-2xl shadow-lg p-6 text-center border border-gray-100">
-                                        <p className="text-gray-500">No bills found for this monthly expense.</p>
-                                    </div>
-                                )}
-                            </div>
+                            <BillsTable billsData={bills} onBillClick={handleViewBill} />
                         </div>
                     </div>
                 );
@@ -1249,42 +1321,11 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
             case 'allBills':
                 return (
                     <div className="min-h-screen bg-gray-50 p-4">
-                        <div className="w-full max-w-4xl mx-auto">
+                        <div className="w-full max-w-6xl mx-auto">
                             <div className="bg-blue-600 p-4 rounded-xl shadow-md mb-10 text-center">
                                 <h1 className="text-4xl font-extrabold text-white">Bills for the Month</h1>
                             </div>
-                            <div className="space-y-4">
-                                {allProjectBills.length > 0 ? (
-                                    allProjectBills.map((bill) => (
-                                        <div key={bill.id} onClick={() => handleViewBill(bill)} className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl shadow-md border-l-4 border-blue-500 hover:shadow-lg transition-all duration-300 cursor-pointer">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center space-x-4">
-                                                    <div className="h-12 w-12 bg-white rounded-full flex items-center justify-center shadow-sm">
-                                                        <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                                        </svg>
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="text-lg font-semibold text-gray-800">Voucher: {bill.voucher_no}</h3>
-                                                        <p className="text-sm text-gray-600">{new Date(bill.date).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-sm text-gray-600">Amount</p>
-                                                    <p className="text-xl font-bold text-indigo-600">Rs {parseFloat(bill.amount).toLocaleString()}</p>
-                                                </div>
-                                            </div>
-                                            <div className="mt-4 text-sm text-gray-600 line-clamp-2">
-                                                {bill.description}
-                                            </div>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="text-center py-8">
-                                        <p className="text-gray-500 text-lg">No bills found for this month.</p>
-                                    </div>
-                                )}
-                            </div>
+                            <BillsTable billsData={allProjectBills} onBillClick={handleViewBill} />
                         </div>
                     </div>
                 );

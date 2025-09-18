@@ -420,6 +420,23 @@ export default function Admin({ user, setUser }) {
         }
     };
 
+    const getWelcomeMessage = (username) => {
+        switch (username) {
+            case 'danial@512':
+                return 'Welcome Mr. Danial Munir Malik – Project Manager';
+            case 'GRasool799':
+                return 'Welcome Mr. Ghulam Rasool – Project Director';
+            case 'fahad_ali90':
+                return 'Welcome Mr. Fahad Ali – Accounts & Finance';
+            case 'fiazstores123':
+                return 'Welcome Mr. Fiaz Stores & Accounts';
+            case 'mnaveed09':
+                return 'Welcome, Developer';
+            default:
+                return `Welcome ${username} (Admin)`;
+        }
+    };
+
     if (!user) {
         return (
             <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4 font-sans">
@@ -764,7 +781,7 @@ export default function Admin({ user, setUser }) {
                 <div className="pt-4 pb-8 h-[calc(100vh-60px)] overflow-y-auto">
                     {/* Welcome Banner */}
                     <div className="bg-white p-6 rounded-lg shadow-md mx-4 my-6">
-                        <h2 className="text-xl font-semibold text-neutral-800 text-center "> Welcome {user.username} (Admin)</h2>
+                        <h2 className="text-xl font-semibold text-neutral-800 text-center ">{getWelcomeMessage(user.username)}</h2>
                         <p className="text-sm text-neutral-500 mt-1 text-center">Manage your team and track demands efficiently</p>
                     </div>
 
