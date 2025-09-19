@@ -35,6 +35,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
         expense_type: '', // Corresponds to 'category_id' in your old code
         subcategory_id: '', // Corresponds to 'sub_head'
         approved_by: '', // Add this field
+        month_id: '' // Add this field
     });
     const [billImage, setBillImage] = useState(null);
 
@@ -52,6 +53,29 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
     const [selectedBill, setSelectedBill] = useState(null);
     // State for all project bills
     const [allProjectBills, setAllProjectBills] = useState([]);
+
+    // State for dropdown form visibility
+    const [showBillCreationForm, setShowBillCreationForm] = useState(false);
+
+    // New states for monthly expenses view
+    const [selectedFilterMonth, setSelectedFilterMonth] = useState(null);
+    const [showCreateBillForm, setShowCreateBillForm] = useState(false);
+
+    // Quick month options
+    const quickMonths = [
+        { id: 'jan', label: 'Jan' },
+        { id: 'feb', label: 'Feb' },
+        { id: 'mar', label: 'Mar' },
+        { id: 'apr', label: 'Apr' },
+        { id: 'may', label: 'May' },
+        { id: 'jun', label: 'Jun' },
+        { id: 'jul', label: 'Jul' },
+        { id: 'aug', label: 'Aug' },
+        { id: 'sep', label: 'Sep' },
+        { id: 'oct', label: 'Oct' },
+        { id: 'nov', label: 'Nov' },
+        { id: 'dec', label: 'Dec' },
+    ];
 
     // Dynamic sizing utility function
     const getBoxSizeClasses = (totalCount) => {
@@ -78,13 +102,25 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
         setVoucherSearchError('');
         setVoucherSearchResults([]);
         try {
+            // Make sure we have the required IDs
+            if (!selectedIds.dailyExpenseId) {
+                setVoucherSearchError('Please select a yearly sheet first');
+                setVoucherSearchLoading(false);
+                return;
+            }
+
             const resp = await axiosPrivate.get(
-                `projects/${projectId}/bills/search/?search=${encodeURIComponent(voucherSearchQuery)}`
+                `projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/bills/search/?voucher_no=${encodeURIComponent(voucherSearchQuery.trim())}`
             );
-            setVoucherSearchResults(resp.data);
+            if (resp.data) {
+                setVoucherSearchResults(Array.isArray(resp.data) ? resp.data : [resp.data]);
+            } else {
+                setVoucherSearchResults([]);
+            }
             setVoucherSearchLoading(false);
         } catch (err) {
-            setVoucherSearchError('Voucher search failed.');
+            console.error('Search error:', err);
+            setVoucherSearchError('Voucher search failed. Please try again.');
             setVoucherSearchLoading(false);
         }
     };
@@ -207,43 +243,6 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
         }
     }, [projectId, headId, selectedIds.dailyExpenseId, selectedIds.monthId, selectedIds.categoryId, selectedIds.subcategoryId, view, isCreatingBill]);
 
-    // New useEffect to fetch categories for the bill creation form
-    useEffect(() => {
-        const fetchCategoriesForBill = async () => {
-            if (isCreatingBill && billCreationStep === 'enterDetails' && selectedMonthForBill) {
-                try {
-                    const url = `projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${selectedMonthForBill}/categories/`;
-                    const response = await axiosPrivate.get(url);
-                    setCategories(response.data);
-                } catch (err) {
-                    console.error("Failed to fetch categories for bill creation:", err);
-                    setStatusMessage('Failed to load categories for bill creation.');
-                }
-            }
-        };
-        fetchCategoriesForBill();
-    }, [isCreatingBill, billCreationStep, selectedMonthForBill]);
-
-    // New useEffect to fetch subcategories when a category is selected in the bill form
-    useEffect(() => {
-        const fetchSubcategories = async () => {
-            const { expense_type } = newBillFormData; // Updated to use expense_type
-            if (expense_type) {
-                try {
-                    const url = `projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${selectedMonthForBill}/categories/${expense_type}/subcategories/`;
-                    const response = await axiosPrivate.get(url);
-                    setSubcategories(response.data);
-                } catch (err) {
-                    console.error("Failed to fetch subcategories:", err);
-                    setStatusMessage('Failed to load subcategories.');
-                }
-            } else {
-                setSubcategories([]);
-            }
-        };
-        fetchSubcategories();
-    }, [newBillFormData.expense_type]); // Updated dependency
-
     // Handlers for navigation
     const handleSelectDailyExpense = (id) => {
         setSelectedIds(prev => ({ ...prev, dailyExpenseId: id, monthId: null, categoryId: null, subcategoryId: null }));
@@ -275,21 +274,16 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
     // Updated handleBack logic
     const handleBack = () => {
         if (isCreatingBill) {
-            // If in bill creation flow, handle steps back
-            if (billCreationStep === 'enterDetails') {
-                setBillCreationStep('selectMonth');
-                setSelectedMonthForBill(null);
-            } else { // 'selectMonth'
-                setIsCreatingBill(false);
-                setBillCreationStep('selectMonth'); // Reset for next time
-                setSelectedMonthForBill(null);
-                setNewBillFormData({ // Clear form data
-                    voucher_no: '', date: '', amount: '', description: '',
-                    expense_type: '', subcategory_id: '', approved_by: ''
-                });
-                setBillImage(null);
-            }
-            return; // Exit here if handled by bill creation back
+            setIsCreatingBill(false);
+            setBillCreationStep('selectMonth');
+            setSelectedMonthForBill(null);
+            setNewBillFormData({ // Clear form data
+                voucher_no: '', date: '', amount: '', description: '',
+                expense_type: '', subcategory_id: '', approved_by: '',
+                month_id: ''
+            });
+            setBillImage(null);
+            return;
         }
 
         // Clear error and loading states when navigating back
@@ -329,19 +323,15 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                     ...prev,
                     subcategoryId: null
                 }));
-                setBills([]); // Clear bills when going back
+                setBills([]);
                 break;
             case 'singleBillView':
-                if (bills.length > 0) {
-                    setView('bills');
-                } else {
-                    setView('allBills');
-                }
                 setSelectedBill(null);
+                setView('monthlyExpenses'); // Go directly back to monthly expenses view
                 break;
             case 'allBills':
-                setView('allBillsMonths');
-                setAllProjectBills([]); // Clear bills when going back
+                setView('monthlyExpenses');
+                setAllProjectBills([]);
                 break;
             case 'allBillsMonths':
                 setView('billActions');
@@ -416,12 +406,33 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
         setBillCreationStep('enterDetails');
     };
 
-    const handleNewBillFormChange = (e) => {
+    const handleNewBillFormChange = async (e) => {
         const { name, value } = e.target;
         setNewBillFormData(prev => ({ ...prev, [name]: value }));
-        // If category changes, reset subcategory
-        if (name === 'expense_type') {
+
+        // If month changes, fetch categories
+        if (name === 'month_id' && value) {
+            try {
+                const url = `projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${value}/categories/`;
+                const response = await axiosPrivate.get(url);
+                setCategories(response.data);
+            } catch (err) {
+                console.error("Failed to fetch categories:", err);
+                setStatusMessage('Failed to load categories.');
+            }
+        }
+
+        // If category changes, reset subcategory and fetch new subcategories
+        if (name === 'expense_type' && value) {
             setNewBillFormData(prev => ({ ...prev, subcategory_id: '' }));
+            try {
+                const url = `projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${newBillFormData.month_id}/categories/${value}/subcategories/`;
+                const response = await axiosPrivate.get(url);
+                setSubcategories(response.data);
+            } catch (err) {
+                console.error("Failed to fetch subcategories:", err);
+                setStatusMessage('Failed to load subcategories.');
+            }
         }
     };
 
@@ -432,57 +443,45 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
     const submitNewBill = async (e) => {
         e.preventDefault();
         setStatusMessage('');
-        if (!selectedIds.dailyExpenseId || !selectedMonthForBill) {
+        if (!selectedIds.dailyExpenseId || !newBillFormData.month_id) {
             setStatusMessage('Error: Daily expense or month not selected.');
             return;
         }
 
         try {
             const formData = new FormData();
-            formData.append('voucher_no', newBillFormData.voucher_no);
-            formData.append('date', newBillFormData.date);
-            formData.append('amount', newBillFormData.amount);
-            formData.append('description', newBillFormData.description);
-            formData.append('month_id', selectedMonthForBill);
-            formData.append('category_id', newBillFormData.expense_type);
-            formData.append('subcategory_id', newBillFormData.subcategory_id);
-            formData.append('approved_by', newBillFormData.approved_by);
-
+            
+            // Map expense_type to category_id for backend compatibility
+            const dataToSend = {
+                ...newBillFormData,
+                category_id: newBillFormData.expense_type // Map expense_type to category_id
+            };
+            delete dataToSend.expense_type; // Remove the expense_type field
+            
+            // Add all form fields to formData with correct field names
+            Object.keys(dataToSend).forEach(key => {
+                if (dataToSend[key]) { // Only add if value exists
+                    formData.append(key, dataToSend[key]);
+                }
+            });
+            
             if (billImage) {
                 formData.append('bill_image', billImage);
             }
 
-            // Debug logging
-            console.log('Submitting bill with data:', {
-                voucher_no: newBillFormData.voucher_no,
-                date: newBillFormData.date,
-                amount: newBillFormData.amount,
-                description: newBillFormData.description,
-                month_id: selectedMonthForBill,
-                category_id: newBillFormData.expense_type,
-                subcategory_id: newBillFormData.subcategory_id,
-                approved_by: newBillFormData.approved_by
-            });
-
-            const createBillUrl = `projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${selectedMonthForBill}/bills/`;
+            const createBillUrl = `projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${newBillFormData.month_id}/bills/`;
+            
+            // Debug log to verify the data being sent
+            console.log('Submitting bill with data:', Object.fromEntries(formData));
             
             const response = await axiosPrivate.post(createBillUrl, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
 
-            console.log('Bill creation response:', response.data);
-
-            // Remove this validation check since the backend already validates
-            // if (!response.data.category || !response.data.subcategory) {
-            //     throw new Error('Category or subcategory not saved properly');
-            // }
-
             setStatusMessage('Bill created successfully!');
             
             // Reset form and state
             setIsCreatingBill(false);
-            setBillCreationStep('selectMonth');
-            setSelectedMonthForBill(null);
             setNewBillFormData({
                 voucher_no: '',
                 date: '',
@@ -490,26 +489,26 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                 description: '',
                 expense_type: '',
                 subcategory_id: '',
-                approved_by: ''
+                approved_by: '',
+                month_id: ''
             });
             setBillImage(null);
 
-            // Refresh the data
-            if (selectedIds.subcategoryId) {
-                const subcategoryUrl = `projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${selectedMonthForBill}/categories/${newBillFormData.expense_type}/subcategories/`;
-                const subcategoriesResponse = await axiosPrivate.get(subcategoryUrl);
-                setSubcategories(subcategoriesResponse.data);
-                
-                // Also refresh the bills list
-                const selectedSubcategory = subcategoriesResponse.data.find(sub => sub.id === selectedIds.subcategoryId);
-                if (selectedSubcategory && selectedSubcategory.bills) {
-                    setBills(selectedSubcategory.bills);
-                }
+            // Refresh the bills list
+            if (newBillFormData.month_id) {
+                const resp = await axiosPrivate.get(
+                    `projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${newBillFormData.month_id}/bills/`
+                );
+                setAllProjectBills(resp.data);
             }
 
         } catch (err) {
             console.error("Error creating bill:", err.response?.data || err);
-            const errorMessage = err.response?.data?.detail || err.response?.data || err.message || 'Unknown error';
+            const errorMessage = err.response?.data?.detail || 
+                           Object.entries(err.response?.data || {})
+                               .map(([key, value]) => `${key}: ${value}`)
+                               .join(', ') || 
+                           'Unknown error';
             setStatusMessage(`Failed to create bill: ${errorMessage}`);
         }
     };
@@ -685,7 +684,6 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                 </svg>
                                 <div>
                                     <p className="text-gray-500">Approved By</p>
-                                    <p className="font-medium text-gray-900">{bill.approved_by}</p>
                                 </div>
                             </div>
                         </div>
@@ -714,178 +712,155 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
     const renderBillCreationForm = () => {
         if (!isCreatingBill) return null;
 
-        if (billCreationStep === 'selectMonth') {
-            const totalMonths = monthlyExpenses.length + 1; // +1 for the Add New button (not counted in actual sizing)
-            const boxSize = getBoxSizeClasses(monthlyExpenses.length);
-
-            return (
-                <div className="min-h-screen bg-gray-50 p-4">
-                    <div className="w-full max-w-4xl mx-auto">
-                        <div className="bg-blue-600 p-4 rounded-xl shadow-md mb-10 text-center">
-                            <h1 className="text-4xl font-extrabold text-white">Select Month for Bill</h1>
-                        </div>
-                        <p className="text-lg text-gray-700 mb-6 text-center">
-                            Choose the monthly expense sheet where you want to add the new bill.
-                        </p>
-                        <div className="flex flex-wrap justify-center gap-3">
-                            {monthlyExpenses.length > 0 ? (
-                                monthlyExpenses.map((month) => (
-                                    <div
-                                        key={month.id}
-                                        onClick={() => handleSelectMonthForBill(month.id)}
-                                        className={`bg-white rounded-xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 ${boxSize} flex flex-col items-center justify-center`}
-                                    >
-                                        <h3 className="text-lg font-semibold text-gray-700 mb-2 text-center">{month.title}</h3>
-                                        <p className="text-gray-500 text-sm text-center">Rs {month.total_amount ? month.total_amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : 'none'}</p>
-                                    </div>
-                                ))
-                            ) : (
-                                <div className="bg-white rounded-2xl shadow-lg p-6 text-center border border-gray-100">
-                                    <p className="text-gray-500">No monthly expenses found. Please create one first.</p>
-                                </div>
-                            )}
-                        </div>
+        return (
+            <div className="min-h-screen bg-gray-50 p-4">
+                <div className="w-full max-w-4xl mx-auto">
+                    <div className="bg-blue-600 p-4 rounded-xl shadow-md mb-10 text-center">
+                        <h1 className="text-4xl font-extrabold text-white">Create New Bill</h1>
                     </div>
-                </div>
-            );
-        } else if (billCreationStep === 'enterDetails') {
-            const selectedMonthTitle = monthlyExpenses.find(m => m.id === selectedMonthForBill)?.title || 'Selected Month';
-
-            return (
-                <div className="min-h-screen bg-gray-50 p-4">
-                    <div className="w-full max-w-4xl mx-auto">
-                        <div className="bg-blue-600 p-4 rounded-xl shadow-md mb-10 text-center">
-                            <h1 className="text-4xl font-extrabold text-white">Create Bill for {selectedMonthTitle}</h1>
-                        </div>
-                        <form onSubmit={submitNewBill} className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100 space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
-                                    <input
-                                        type="date"
-                                        id="date"
-                                        name="date"
-                                        value={newBillFormData.date}
-                                        onChange={handleNewBillFormChange}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label htmlFor="voucher_no" className="block text-sm font-medium text-gray-700 mb-1">Voucher No. *</label>
-                                    <input
-                                        type="text"
-                                        id="voucher_no"
-                                        name="voucher_no"
-                                        value={newBillFormData.voucher_no}
-                                        onChange={handleNewBillFormChange}
-                                        placeholder="e.g., 0001"
-                                        className="w-full p-3 mb-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">Amount *</label>
-                                    <input
-                                        type="number"
-                                        id="amount"
-                                        name="amount"
-                                        value={newBillFormData.amount}
-                                        onChange={handleNewBillFormChange}
-                                        placeholder="0.00"
-                                        step="0.01"
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        required
-                                    />
-                                </div>
-                                <div className="col-span-1 md:col-span-2">
-                                    <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
-                                    <textarea
-                                        id="description"
-                                        name="description"
-                                        rows="3"
-                                        value={newBillFormData.description}
-                                        onChange={handleNewBillFormChange}
-                                        placeholder="Enter detailed description of the expense"
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        required
-                                    ></textarea>
-                                </div>
-                                <div>
-                                    <label htmlFor="expense_type" className="block text-sm font-medium text-gray-700 mb-1">Expense Type (Head) *</label>
-                                    <select
-                                        id="expense_type"
-                                        name="expense_type"
-                                        value={newBillFormData.expense_type}
-                                        onChange={handleNewBillFormChange}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        required
-                                    >
-                                        <option value="">Select a Head</option>
-                                        {categories.map(category => (
-                                            <option key={category.id} value={category.id}>{category.title}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label htmlFor="subcategory_id" className="block text-sm font-medium text-gray-700 mb-1">Sub-Head *</label>
-                                    <select
-                                        id="subcategory_id"
-                                        name="subcategory_id"
-                                        value={newBillFormData.subcategory_id}
-                                        onChange={handleNewBillFormChange}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        required
-                                        disabled={!newBillFormData.expense_type}
-                                    >
-                                        <option value="">Select a Sub-Head</option>
-                                        {subcategories.map(sub => (
-                                            <option key={sub.id} value={sub.id}>{sub.title}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label htmlFor="approved_by" className="block text-sm font-medium text-gray-700 mb-1">Approved By *</label>
-                                    <input
-                                        type="text"
-                                        id="approved_by"
-                                        name="approved_by"
-                                        value={newBillFormData.approved_by}
-                                        onChange={handleNewBillFormChange}
-                                        placeholder="Enter name of approver"
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        required
-                                    />
-                                </div>
+                    <form onSubmit={submitNewBill} className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100 space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label htmlFor="month_id" className="block text-sm font-medium text-gray-700 mb-1">Month *</label>
+                                <select
+                                    id="month_id"
+                                    name="month_id"
+                                    value={newBillFormData.month_id}
+                                    onChange={handleNewBillFormChange}
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    required
+                                >
+                                    <option value="">Select Month</option>
+                                    {monthlyExpenses.map(month => (
+                                        <option key={month.id} value={month.id}>{month.title}</option>
+                                    ))}
+                                </select>
                             </div>
                             <div>
-                                <label htmlFor="bill_image" className="block text-sm font-medium text-gray-700 mb-1">Bill Image</label>
+                                <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
                                 <input
-                                    type="file"
-                                    id="bill_image"
-                                    name="bill_image"
-                                    onChange={handleBillImageChange}
-                                    className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                    type="date"
+                                    id="date"
+                                    name="date"
+                                    value={newBillFormData.date}
+                                    onChange={handleNewBillFormChange}
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    required
                                 />
                             </div>
+                            <div>
+                                <label htmlFor="voucher_no" className="block text-sm font-medium text-gray-700 mb-1">Voucher No. *</label>
+                                <input
+                                    type="text"
+                                    id="voucher_no"
+                                    name="voucher_no"
+                                    value={newBillFormData.voucher_no}
+                                    onChange={handleNewBillFormChange}
+                                    placeholder="e.g., 0001"
+                                    className="w-full p-3 mb-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">Amount *</label>
+                                <input
+                                    type="number"
+                                    id="amount"
+                                    name="amount"
+                                    value={newBillFormData.amount}
+                                    onChange={handleNewBillFormChange}
+                                    placeholder="0.00"
+                                    step="0.01"
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    required
+                                />
+                            </div>
+                            <div className="col-span-1 md:col-span-2">
+                                <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
+                                <textarea
+                                    id="description"
+                                    name="description"
+                                    rows="3"
+                                    value={newBillFormData.description}
+                                    onChange={handleNewBillFormChange}
+                                    placeholder="Enter detailed description of the expense"
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    required
+                                ></textarea>
+                            </div>
+                            <div>
+                                <label htmlFor="expense_type" className="block text-sm font-medium text-gray-700 mb-1">Expense Type (Head) *</label>
+                                <select
+                                    id="expense_type"
+                                    name="expense_type"
+                                    value={newBillFormData.expense_type}
+                                    onChange={handleNewBillFormChange}
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    required
+                                >
+                                    <option value="">Select a Head</option>
+                                    {categories.map(category => (
+                                        <option key={category.id} value={category.id}>{category.title}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label htmlFor="subcategory_id" className="block text-sm font-medium text-gray-700 mb-1">Sub-Head *</label>
+                                <select
+                                    id="subcategory_id"
+                                    name="subcategory_id"
+                                    value={newBillFormData.subcategory_id}
+                                    onChange={handleNewBillFormChange}
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    required
+                                    disabled={!newBillFormData.expense_type}
+                                >
+                                    <option value="">Select a Sub-Head</option>
+                                    {subcategories.map(sub => (
+                                        <option key={sub.id} value={sub.id}>{sub.title}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label htmlFor="approved_by" className="block text-sm font-medium text-gray-700 mb-1">Approved By *</label>
+                                <input
+                                    type="text"
+                                    id="approved_by"
+                                    name="approved_by"
+                                    value={newBillFormData.approved_by}
+                                    onChange={handleNewBillFormChange}
+                                    placeholder="Enter name of approver"
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    required
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <label htmlFor="bill_image" className="block text-sm font-medium text-gray-700 mb-1">Bill Image</label>
+                            <input
+                                type="file"
+                                id="bill_image"
+                                name="bill_image"
+                                onChange={handleBillImageChange}
+                                className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                            />
+                        </div>
 
-                            <button
-                                type="submit"
-                                className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-200"
-                            >
-                                Add Bill
-                            </button>
-                            {statusMessage && (
-                                <p className={`mt-4 text-center text-sm font-medium ${statusMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
-                                    {statusMessage}
-                                </p>
-                            )}
-                        </form>
-                    </div>
+                        <button
+                            type="submit"
+                            className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                        >
+                            Add Bill
+                        </button>
+                        {statusMessage && (
+                            <p className={`mt-4 text-center text-sm font-medium ${statusMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
+                                {statusMessage}
+                            </p>
+                        )}
+                    </form>
                 </div>
-            );
-        }
-        return null;
+            </div>
+        );
     };
 
     const renderContent = () => {
@@ -956,104 +931,141 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                     </div>
                 );
             case 'monthlyExpenses':
-                const monthlyBoxSize = getBoxSizeClasses(monthlyExpenses.length);
+                const monthlyBoxSize = "w-[140px] h-[100px] sm:w-[160px] sm:h-[120px]"; // Smaller size for mobile
                 
                 return (
                     <div className="min-h-screen bg-gray-50 p-4">
                         <div className="w-full max-w-4xl mx-auto">
-                            <div className="bg-blue-600 p-4 rounded-xl shadow-md mb-10 text-center">
+                            <div className="bg-blue-600 p-4 rounded-xl shadow-md mb-6 text-center">
                                 <h1 className="text-4xl font-extrabold text-white">Monthly Expenses</h1>
                             </div>
 
-                            {/* Action Controls Container */}
-                            <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 space-y-4 mb-8">
-                                {/* Search Bar */}
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        placeholder="Search voucher number..."
-                                        className="w-full p-3 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        value={voucherSearchQuery}
-                                        onChange={(e) => setVoucherSearchQuery(e.target.value)}
-                                        onKeyPress={(e) => {
-                                            if (e.key === 'Enter') {
-                                                handleVoucherSearch();
+                            {/* Add Monthly Expenses Section */}
+                            <div className="mb-6 overflow-x-auto">
+                                <div className="flex gap-3 p-2 min-w-min">
+                                    {/* Add New Monthly Expense */}
+                                    <div
+                                        className={`bg-white rounded-xl shadow-lg p-3 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center flex-shrink-0 ${monthlyBoxSize}`}
+                                        onClick={async () => {
+                                            const title = prompt('Enter month name (e.g., "January"):');
+                                            if (title) {
+                                                try {
+                                                    await axiosPrivate.post(`projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/`, { title });
+                                                    setStatusMessage('Monthly expense created successfully!');
+                                                    fetchData(); // Refresh the list
+                                                } catch (err) {
+                                                    setStatusMessage('Failed to create monthly expense.');
+                                                    console.error("Error creating monthly expense:", err);
+                                                }
                                             }
                                         }}
-                                    />
-                                    <button
-                                        onClick={handleVoucherSearch}
-                                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                                     >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                        </svg>
-                                    </button>
-                                </div>
+                                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-full flex items-center justify-center mb-2">
+                                            <svg className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                            </svg>
+                                        </div>
+                                        <p className="text-gray-600 font-medium text-center text-xs sm:text-sm">Add New Month</p>
+                                    </div>
 
-                                {/* More Button */}
+                                    {/* Existing Monthly Expenses */}
+                                    {monthlyExpenses.map((month) => (
+                                        <div
+                                            key={month.id}
+                                            onClick={() => handleSelectMonthlyExpense(month.id)} // Changed from fetchBillsForMonth to handleSelectMonthlyExpense
+                                            className={`bg-white rounded-xl shadow-lg p-3 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center flex-shrink-0 ${monthlyBoxSize}`}
+                                        >
+                                            <h3 className="text-sm sm:text-base font-semibold text-gray-700 mb-1">{month.title}</h3>
+                                            <p className="text-gray-500 text-xs sm:text-sm">
+                                                Rs {month.total_amount ? month.total_amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '0'}
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Quick Month Filter */}
+                            <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+                                <div className="space-y-4">
+                                    <div>
+                                        <h3 className="text-sm font-medium text-gray-700 mb-2">Quick Month Filter:</h3>
+                                        <div className="flex flex-wrap gap-2">
+                                            <button
+                                                onClick={handleShowAllBills}
+                                                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 ${
+                                                    selectedFilterMonth === null
+                                                        ? 'bg-blue-600 text-white'
+                                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                }`}
+                                            >
+                                                All
+                                            </button>
+                                            {monthlyExpenses.map((month) => (
+                                                <button
+                                                    key={month.id}
+                                                    onClick={() => handleQuickMonthFilter(month.id)}
+                                                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 ${
+                                                        selectedFilterMonth === month.id
+                                                            ? 'bg-blue-600 text-white'
+                                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                    }`}
+                                                >
+                                                    {month.title}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Create Bill Section */}
+                            <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center space-x-3">
+                                        <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                        </svg>
+                                        <h2 className="text-lg font-semibold text-gray-900">Add New Bill</h2>
+                                    </div>
+                                    <span className="text-sm text-gray-500">{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
+                                </div>
+                                <p className="text-sm text-gray-500 mb-4">Click to expand the form</p>
                                 <button
-                                    onClick={() => setView('billActions')}
-                                    className="w-full bg-gray-600 text-white font-medium rounded-lg shadow-md hover:bg-gray-700 transition-colors duration-200 py-3 flex items-center justify-center space-x-2"
+                                    onClick={() => {
+                                        if (monthlyExpenses.length > 0) {
+                                            setIsCreatingBill(true);
+                                            setBillCreationStep('selectMonth');
+                                        } else {
+                                            setStatusMessage('Please create a monthly expense first to add bills.');
+                                        }
+                                    }}
+                                    className="w-full bg-blue-600 text-white font-medium rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-200 py-3 flex items-center justify-center space-x-2"
                                 >
-                                    <span>More Actions</span>
+                                    <span>Create New Bill</span>
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                                     </svg>
                                 </button>
                             </div>
 
-                            {/* Show search results if any */}
-                            {voucherSearchQuery && voucherSearchResults.length > 0 && (
-                                <div className="mb-8">
-                                    <h3 className="text-lg font-semibold text-gray-700 mb-3">Search Results</h3>
-                                    <BillsTable billsData={voucherSearchResults} onBillClick={handleViewBill} />
+                            {/* Bills History */}
+                            <div className="bg-white rounded-xl shadow-lg">
+                                <div className="p-6 border-b border-gray-200">
+                                    <h2 className="text-lg font-semibold text-gray-900">Bills History</h2>
                                 </div>
-                            )}
-
-                            {/* Monthly Expenses List */}
-                            <div className="flex flex-wrap justify-center gap-3">
-                                {/* Add New Monthly Expense */}
-                                <div className={`bg-white rounded-xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center ${monthlyBoxSize}`}
-                                    onClick={() => {
-                                        const title = prompt('Enter month name (e.g., "January"):');
-                                        if (title) {
-                                            setNewMonthlyTitle(title);
-                                            const submitForm = async () => {
-                                                setStatusMessage('');
-                                                try {
-                                                    await axiosPrivate.post(`projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/`, { title });
-                                                    setStatusMessage('Monthly expense created successfully!');
-                                                    setNewMonthlyTitle('');
-                                                    fetchData();
-                                                } catch (err) {
-                                                    setStatusMessage('Failed to create monthly expense.');
-                                                    console.error("Error creating monthly expense:", err);
-                                                }
-                                            };
-                                            submitForm();
-                                        }
-                                    }}
-                                >
-                                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
-                                        <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                        </svg>
-                                    </div>
-                                    <p className="text-gray-600 font-medium text-center text-sm">Add New Monthly Expense</p>
+                                <div className="p-6">
+                                    <BillsTable billsData={allProjectBills} onBillClick={handleViewBill} />
                                 </div>
-
-                                {/* Existing Monthly Expenses */}
-                                {monthlyExpenses.length > 0 && (
-                                    monthlyExpenses.map((month) => (
-                                        <div key={month.id} onClick={() => handleSelectMonthlyExpense(month.id)} className={`bg-white rounded-xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center ${monthlyBoxSize}`} >
-                                            <h3 className="text-lg font-semibold text-gray-700 mb-2 text-center">{month.title}</h3>
-                                            <p className="text-gray-500 text-sm text-center">Rs {month.total_amount ? month.total_amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : 'none'}</p>
-                                        </div>
-                                    ))
-                                )}
                             </div>
                         </div>
+
+                        {/* Show search results if any */}
+                        {voucherSearchQuery && voucherSearchResults.length > 0 && (
+                            <div className="mt-8">
+                                <h3 className="text-lg font-semibold text-gray-700 mb-3">Search Results</h3>
+                                <BillsTable billsData={voucherSearchResults} onBillClick={handleViewBill} />
+                            </div>
+                        )}
                     </div>
                 );
             case 'billActions':
@@ -1154,26 +1166,21 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
 
                             <div className="flex flex-wrap justify-center gap-3">
                                 {/* Add new category button */}
-                                <div className={`bg-white rounded-xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center ${categoriesBoxSize}`}
-                                    onClick={() => {
-                                        const title = prompt('Enter category name (e.g., "Fuel"):');
+                                <div 
+                                    onClick={async () => {
+                                        const title = prompt('Enter category name:');
                                         if (title) {
-                                            setNewCategoryTitle(title);
-                                            const submitForm = async () => {
-                                                setStatusMessage('');
-                                                try {
-                                                    await axiosPrivate.post(`projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${selectedIds.monthId}/categories/`, { title });
-                                                    setStatusMessage('Category created successfully!');
-                                                    setNewCategoryTitle('');
-                                                    fetchData();
-                                                } catch (err) {
-                                                    setStatusMessage('Failed to create category.');
-                                                    console.error("Error creating category:", err);
-                                                }
-                                            };
-                                            submitForm();
+                                            try {
+                                                await axiosPrivate.post(`projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${selectedIds.monthId}/categories/`, { title });
+                                                setStatusMessage('Category created successfully!');
+                                                fetchData(); // Refresh the list
+                                            } catch (err) {
+                                                setStatusMessage('Failed to create category.');
+                                                console.error("Error creating category:", err);
+                                            }
                                         }
                                     }}
+                                    className={`bg-white rounded-xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center ${categoriesBoxSize}`}
                                 >
                                     <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
                                         <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1331,6 +1338,56 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                 );
             default:
                 return null;
+        }
+    };
+
+    // Add this function after other handler functions, before renderContent
+    const handleQuickMonthFilter = async (monthId) => {
+        setSelectedFilterMonth(monthId);
+        setLoading(true);
+        try {
+            const resp = await axiosPrivate.get(
+                `projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${monthId}/bills/`
+            );
+            setAllProjectBills(resp.data);
+            setLoading(false);
+        } catch (err) {
+            console.error("Error fetching bills for month:", err);
+            setError('Failed to fetch bills for this month.');
+            setLoading(false);
+        }
+    };
+
+    // Add this function with the other handlers
+    const handleShowAllBills = async () => {
+        setSelectedFilterMonth(null);
+        setLoading(true);
+        try {
+            // First get all months
+            const monthsResp = await axiosPrivate.get(
+                `projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/`
+            );
+            
+            // Then get bills for each month
+            const allBillsPromises = monthsResp.data.map(month => 
+                axiosPrivate.get(
+                    `projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${month.id}/bills/`
+                )
+            );
+            
+            const responses = await Promise.all(allBillsPromises);
+            
+            // Combine all bills into a single array
+            const allBills = responses.reduce((acc, resp) => {
+                return [...acc, ...(Array.isArray(resp.data) ? resp.data : [])];
+            }, []);
+            
+            setAllProjectBills(allBills);
+            setLoading(false);
+        } catch (err) {
+            console.error("Error fetching all bills:", err);
+            setError('Failed to fetch all bills.');
+            setLoading(false);
         }
     };
 
