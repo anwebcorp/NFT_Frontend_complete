@@ -1,0 +1,58 @@
+/* filepath: c:\Users\pc\Desktop\FRONTENDliving\FRONTENDlive\src\styles\scrollbar.css */
+/* Enable smooth/momentum mobile scrolling and ensure vertical touch panning.
+   Also apply to Tailwind's overflow-y-auto so no JSX changes are required. */
+
+html, body, #root {
+  height: 100%;
+  touch-action: pan-y;
+  -ms-touch-action: pan-y;
+  overscroll-behavior: auto;
+}
+
+/* Apply to elements that use Tailwind's overflow-y-auto */
+.overflow-y-auto {
+  -webkit-overflow-scrolling: touch; /* iOS momentum scrolling */
+  touch-action: pan-y;               /* ensure vertical swipe gestures */
+  -ms-touch-action: pan-y;
+  overscroll-behavior: contain;      /* prevent parent from capturing overscroll */
+
+  /* Make scrollbars visible and styled */
+  -ms-overflow-style: auto;          /* IE and Edge */
+  scrollbar-width: thin;             /* Firefox: thin scrollbar */
+  scrollbar-color: rgba(0,0,0,0.35) transparent; /* Firefox thumb + track */
+}
+
+/* WebKit-based browsers (Chrome, Safari, mobile WebKit) */
+.overflow-y-auto::-webkit-scrollbar {
+  width: 8px;
+  background: transparent; /* keep track less obtrusive */
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.02);
+  border-radius: 8px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background-color: rgba(0,0,0,0.35);
+  border-radius: 8px;
+  border: 2px solid rgba(255,255,255,0.02); /* small padding effect */
+}
+
+/* Hover/active states for thumb (desktop & mobile when dragging) */
+.overflow-y-auto::-webkit-scrollbar-thumb:hover,
+.overflow-y-auto::-webkit-scrollbar-thumb:active {
+  background-color: rgba(0,0,0,0.5);
+}
+
+/* Ensure on coarse pointer devices the overflow rule is enforced */
+@media (pointer: coarse) {
+  .overflow-y-auto {
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    overscroll-behavior: contain;
+    -ms-overflow-style: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0,0,0,0.35) transparent;
+  }
+}
