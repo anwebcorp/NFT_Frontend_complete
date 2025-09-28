@@ -12,8 +12,8 @@ import { AuthProvider } from "./authContext";
 import Accounts from "./Accounts"; // Add this import
 
 // ⭐ NEW: Import your new components here
-import Inbox from "./inbox"; 
-import GenerateDemand from "./generateDemand";
+import Inbox from "./Inbox"; 
+import GenerateDemand from "./GenerateDemand";
 
 function App() {
   // ⭐ UPDATED: Initialize user to `undefined` to represent the 'loading' state
