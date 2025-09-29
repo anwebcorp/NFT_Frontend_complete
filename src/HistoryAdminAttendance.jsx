@@ -145,12 +145,21 @@ const HistoryAdminAttendance = ({ selectedEmployee }) => {
 
   return (
     <div className="flex-1 bg-white rounded-lg shadow overflow-hidden">
-      <div className="overflow-x-auto">
+      <div 
+        className="overflow-y-auto h-full"
+        style={{
+          WebkitOverflowScrolling: 'touch',
+          touchAction: 'pan-y',
+          overscrollBehavior: 'contain',
+          minHeight: 0,
+        }}
+      >
         {sortedYearMonths.map(([yearMonth, data]) => (
           <div key={yearMonth} className="border-b last:border-b-0">
             <button
               onClick={() => toggleYearMonth(yearMonth)}
               className="w-full text-left p-4 bg-gray-50 hover:bg-gray-100 flex justify-between items-center"
+              style={{ touchAction: 'manipulation' }} // Prevent double-tap zoom on mobile
             >
               <span className="font-medium">
                 {new Date(data.year, data.month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}
@@ -166,7 +175,14 @@ const HistoryAdminAttendance = ({ selectedEmployee }) => {
             </button>
             
             {expandedYearMonths.has(yearMonth) && (
-              <div className="overflow-x-auto">
+              <div 
+                className="overflow-x-auto"
+                style={{
+                  WebkitOverflowScrolling: 'touch',
+                  touchAction: 'pan-x pan-y',
+                  overscrollBehavior: 'contain'
+                }}
+              >
                 <table className="min-w-full">
                   <thead className="bg-gray-50">
                     <tr>
@@ -219,6 +235,7 @@ const HistoryAdminAttendance = ({ selectedEmployee }) => {
                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                             record.status === 'Present' ? 'bg-green-100 text-green-800' :
                             record.status === 'Absent' ? 'bg-red-100 text-red-800' :
+                            record.status === 'Leave' ? 'bg-yellow-100 text-yellow-800' :
                             'bg-gray-100 text-gray-800'
                           }`}>
                             {record.status}

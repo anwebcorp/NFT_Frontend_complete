@@ -58,6 +58,8 @@ function EmployeeAttendance({ employeeId, employeeName, onBack }) {
   const [canMarkAttendance, setCanMarkAttendance] = useState(true);
   const [expandedYears, setExpandedYears] = useState(new Set());
   const [expandedMonths, setExpandedMonths] = useState(new Set());
+  const [isActionsVisible, setIsActionsVisible] = useState(true);
+  const [showLocation, setShowLocation] = useState(false);
 
   const currentDate = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -92,7 +94,7 @@ function EmployeeAttendance({ employeeId, employeeName, onBack }) {
       const currentDate = new Date().toISOString().split('T')[0];
 
       const payload = {
-        status: status,
+        status: status,  // Now accepts 'Present', 'Absent', or 'Leave'
         date: currentDate,
         location: location
       };
@@ -172,181 +174,193 @@ function EmployeeAttendance({ employeeId, employeeName, onBack }) {
   if (loading) return <div className="p-4 text-center">Loading...</div>;
 
   return (
-    <div className="p-4 h-screen flex flex-col">
-      {/* Logo and Title */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold">My Attendance</h1>
-            <p className="text-gray-500 text-sm">Track and manage your attendance records</p>
-          </div>
-        </div>
-        <div className="text-right">
-          <div className="text-gray-600">Current Date:</div>
-          <div className="font-medium">{currentDate}</div>
-        </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex justify-end gap-3 mb-6">
-        {canMarkAttendance && (
-          <>
-            <button 
-              onClick={() => markAttendance('Present')}
-              className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              Mark Present
-            </button>
-            <button 
-              onClick={() => markAttendance('Absent')}
-              className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              Mark Absent
-            </button>
-          </>
-        )}
-        <button 
-          onClick={onBack} 
-          className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Back
-        </button>
-      </div>
-
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-6">
-          <div className="flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            {error}
-          </div>
-        </div>
-      )}
-
-      {/* Attendance History */}
-      <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-        {Object.entries(groupedRecords).reverse().map(([year, months]) => (
-          <div key={year} className="bg-white rounded-lg shadow-sm border">
-            <button
-              onClick={() => toggleYear(year)}
-              className="w-full flex items-center gap-2 p-4 hover:bg-gray-50"
-            >
-              <svg
-                className={`w-4 h-4 transition-transform ${expandedYears.has(year) ? 'rotate-90' : ''}`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+    <div className="h-screen flex flex-col bg-gray-50">
+      {/* Fixed Header */}
+      <div className="fixed top-0 left-0 right-0 z-20 bg-white shadow-md">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={onBack}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-              <span className="font-medium text-lg">{year}</span>
-              <span className="text-sm text-gray-500">({Object.keys(months).length} months)</span>
-            </button>
-
-            {expandedYears.has(year) && (
-              <div className="border-t">
-                {Object.entries(months).reverse().map(([month, data]) => {
-                  const monthYear = `${year}-${month}`;
-                  const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'long' });
-
-                  return (
-                    <div key={monthYear} className="border-b last:border-b-0">
-                      <button
-                        onClick={() => toggleMonth(monthYear)}
-                        className="w-full flex items-center justify-between p-4 hover:bg-gray-50"
-                      >
-                        <div className="flex items-center gap-2">
-                          <svg
-                            className={`w-4 h-4 transition-transform ${expandedMonths.has(monthYear) ? 'rotate-90' : ''}`}
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                          <span className="font-medium">{monthName}</span>
-                        </div>
-                        <div className="flex gap-4 text-sm">
-                          <span className="text-green-600">{data.total_present} Present</span>
-                          <span className="text-red-600">{data.total_absent} Absent</span>
-                        </div>
-                      </button>
-
-                      {expandedMonths.has(monthYear) && (
-                        <div className="border-t bg-gray-50 p-4">
-                          <table className="min-w-full bg-white rounded-lg overflow-hidden">
-                            <thead className="bg-gray-100">
-                              <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Day</th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Time</th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Location</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                              {data.daily_records.map((record) => (
-                                <tr key={record.id} className="hover:bg-gray-50">
-                                  <td className="px-6 py-4 text-sm text-gray-900">{formatDate(record.date)}</td>
-                                  <td className="px-6 py-4 text-sm text-gray-500">{getDayName(record.date)}</td>
-                                  <td className="px-6 py-4 text-sm text-gray-500 text-center">
-                                    <div className="flex flex-col items-center">
-                                      <span className="font-medium">{formatTime(record.time).time24}</span>
-                                      <span className="text-xs text-gray-400">{formatTime(record.time).time12}</span>
-                                    </div>
-                                  </td>
-                                  <td className="px-6 py-4 text-center">
-                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                      record.status === 'Present' ? 'bg-green-100 text-green-800' :
-                                      record.status === 'Absent' ? 'bg-red-100 text-red-800' :
-                                      'bg-gray-100 text-gray-800'
-                                    }`}>
-                                      {record.status}
-                                    </span>
-                                  </td>
-                                  <td className="px-6 py-4 text-right text-sm text-gray-500">
-                                    {record.location ? (
-                                      <div className="flex flex-col items-end">
-                                        <button 
-                                          onClick={() => window.open(`https://www.google.com/maps?q=${record.location}`, '_blank')}
-                                          className="text-blue-600 hover:text-blue-800"
-                                        >
-                                          Location
-                                        </button>
-                                        <span className="text-xs text-gray-400 mt-1">
-                                          {record.location}
-                                        </span>
-                                      </div>
-                                    ) : '-'}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+              </button>
+              <div>
+                <h1 className="text-xl font-bold text-gray-800">My Attendance</h1>
+                <p className="text-sm text-gray-500">{employeeName || 'Employee'}</p>
               </div>
+            </div>
+            
+            {/* Only show action toggle button */}
+            {canMarkAttendance && (
+              <button
+                onClick={() => setIsActionsVisible(!isActionsVisible)}
+                className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                title={isActionsVisible ? "Hide Actions" : "Show Actions"}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className={`h-6 w-6 transition-transform duration-300 ${
+                    isActionsVisible ? 'rotate-180' : ''
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
             )}
           </div>
-        ))}
+
+          {/* Collapsible Action Buttons */}
+          <div className={`transition-all duration-300 ease-in-out ${
+            isActionsVisible ? 'opacity-100 max-h-20' : 'opacity-0 max-h-0 overflow-hidden'
+          }`}>
+            <div className="px-4 pb-4 flex gap-2">
+              <button 
+                onClick={() => markAttendance('Present')}
+                className="flex-1 py-2 px-4 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Present
+              </button>
+              <button 
+                onClick={() => markAttendance('Absent')}
+                className="flex-1 py-2 px-4 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Absent
+              </button>
+              <button 
+                onClick={() => markAttendance('Leave')}
+                className="flex-1 py-2 px-4 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Leave
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content - Adjust top padding to account for fixed header */}
+      <div className="flex-1 pt-32 p-4 overflow-y-auto">
+        {error && (
+          <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+            <div className="flex items-center gap-2 text-red-700">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span className="font-medium">{error}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Attendance History */}
+        <div className="space-y-4">
+          {Object.entries(groupedRecords).reverse().map(([year, months]) => (
+            <div key={year} className="bg-white rounded-lg shadow-sm border">
+              <button
+                onClick={() => toggleYear(year)}
+                className="w-full flex items-center gap-2 p-4 hover:bg-gray-50"
+              >
+                <svg
+                  className={`w-4 h-4 transition-transform ${expandedYears.has(year) ? 'rotate-90' : ''}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+                <span className="font-medium text-lg">{year}</span>
+                <span className="text-sm text-gray-500">({Object.keys(months).length} months)</span>
+              </button>
+
+              {expandedYears.has(year) && (
+                <div className="border-t">
+                  {Object.entries(months).reverse().map(([month, data]) => {
+                    const monthYear = `${year}-${month}`;
+                    const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'long' });
+
+                    return (
+                      <div key={monthYear} className="border-b last:border-b-0">
+                        <button
+                          onClick={() => toggleMonth(monthYear)}
+                          className="w-full flex items-center justify-between p-4 hover:bg-gray-50"
+                        >
+                          <div className="flex items-center gap-2">
+                            <svg
+                              className={`w-4 h-4 transition-transform ${expandedMonths.has(monthYear) ? 'rotate-90' : ''}`}
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                            <span className="font-medium">{monthName}</span>
+                          </div>
+                          <div className="flex gap-4 text-sm">
+                            <span className="text-green-600">{data.total_present} Present</span>
+                            <span className="text-red-600">{data.total_absent} Absent</span>
+                          </div>
+                        </button>
+
+                        {expandedMonths.has(monthYear) && (
+                          <div className="border-t bg-gray-50 p-4">
+                            <table className="min-w-full bg-white rounded-lg overflow-hidden">
+                              <thead className="bg-gray-100">
+                                <tr>
+                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Day</th>
+                                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Time</th>
+                                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-200">
+                                {data.daily_records.map((record) => (
+                                  <tr key={record.id} className="hover:bg-gray-50">
+                                    <td className="px-6 py-4 text-sm text-gray-900">{formatDate(record.date)}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-500">{getDayName(record.date)}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-500 text-center">
+                                      <div className="flex flex-col items-center">
+                                        <span className="font-medium">{formatTime(record.time).time24}</span>
+                                        <span className="text-xs text-gray-400">{formatTime(record.time).time12}</span>
+                                      </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-center">
+                                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                        record.status === 'Present' ? 'bg-green-100 text-green-800' :
+                                        record.status === 'Absent' ? 'bg-red-100 text-red-800' :
+                                        record.status === 'Leave' ? 'bg-yellow-100 text-yellow-800' :
+                                        'bg-gray-100 text-gray-800'
+                                      }`}>
+                                        {record.status}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

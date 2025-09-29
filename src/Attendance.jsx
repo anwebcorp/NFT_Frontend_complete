@@ -58,6 +58,8 @@ const Attendance = ({ employeeId, employeeName, onBack }) => {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [isStatsVisible, setIsStatsVisible] = useState(true);
+  const [showLocation, setShowLocation] = useState(false);
 
   // add a ref to cache axiosInstance after dynamic import
   const axiosRef = useRef(null);
@@ -223,143 +225,171 @@ const Attendance = ({ employeeId, employeeName, onBack }) => {
 
       {/* Content based on employeeName */}
       {isDashboard ? (
-        // Daily attendance view for Dashboard
-        // set minHeight:0 so the flex child (scroll container) can shrink and scroll on mobile
-        <div className="flex-1 bg-white rounded-lg shadow flex flex-col" style={{ minHeight: 0 }}>
-          <div
-            className="overflow-y-auto flex-1"
-            style={{
-              WebkitOverflowScrolling: 'touch', // enables momentum scrolling on iOS
-              touchAction: 'pan-y',             // ensure vertical touch panning
-              overflowY: 'auto'                 // explicit overflow for some browsers
-            }}
+        <div className="flex-1 bg-white rounded-lg shadow flex flex-col max-h-[calc(100vh-180px)]">
+          {/* Toggle button */}
+          <button
+            onClick={() => setIsStatsVisible(!isStatsVisible)}
+            className="absolute right-6 top-24 z-20 bg-white shadow-lg rounded-full p-2 hover:bg-gray-50 transition-all duration-200 transform hover:scale-110"
+            title={isStatsVisible ? "Hide Stats" : "Show Stats"}
           >
-            {/* Add Dashboard Stats inside the scrollable area so they scroll away on scroll down */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 pb-2">
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <div className="flex items-center">
-                  <div className="flex-1">
-                    <h2 className="text-blue-600 text-lg font-semibold mb-2">Total</h2>
-                    <p className="text-3xl font-bold text-blue-700">{calculateDashboardStats(attendanceStatusToday).total}</p>
-                  </div>
-                  <div className="p-3 bg-blue-100 rounded-full">
-                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className={`h-5 w-5 text-gray-600 transition-transform duration-200 ${
+                isStatsVisible ? 'rotate-180' : ''
+              }`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </button>
 
-              <div className="bg-green-50 p-4 rounded-lg">
-                <div className="flex items-center">
-                  <div className="flex-1">
-                    <h2 className="text-green-600 text-lg font-semibold mb-2">Present</h2>
-                    <p className="text-3xl font-bold text-green-700">{calculateDashboardStats(attendanceStatusToday).present}</p>
-                  </div>
-                  <div className="p-3 bg-green-100 rounded-full">
-                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
+          {/* Stats grid with transition */}
+          <div
+            className={`grid grid-cols-1 md:grid-cols-4 gap-4 p-4 pb-2 bg-white sticky top-0 z-10 transition-all duration-300 ease-in-out ${
+              isStatsVisible ? 'opacity-100 max-h-[500px]' : 'opacity-0 max-h-0 overflow-hidden'
+            }`}
+          >
+            {/* Stats grid content */}
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <div className="flex items-center">
+                <div className="flex-1">
+                  <h2 className="text-blue-600 text-lg font-semibold mb-2">Total</h2>
+                  <p className="text-3xl font-bold text-blue-700">{calculateDashboardStats(attendanceStatusToday).total}</p>
                 </div>
-              </div>
-
-              <div className="bg-red-50 p-4 rounded-lg">
-                <div className="flex items-center">
-                  <div className="flex-1">
-                    <h2 className="text-red-600 text-lg font-semibold mb-2">Absent</h2>
-                    <p className="text-3xl font-bold text-red-700">{calculateDashboardStats(attendanceStatusToday).absent}</p>
-                  </div>
-                  <div className="p-3 bg-red-100 rounded-full">
-                    <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-yellow-50 p-4 rounded-lg">
-                <div className="flex items-center">
-                  <div className="flex-1">
-                    <h2 className="text-yellow-600 text-lg font-semibold mb-2">Late</h2>
-                    <p className="text-3xl font-bold text-yellow-700">{calculateDashboardStats(attendanceStatusToday).late}</p>
-                  </div>
-                  <div className="p-3 bg-yellow-100 rounded-full">
-                    <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
+                <div className="p-3 bg-blue-100 rounded-full">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  </svg>
                 </div>
               </div>
             </div>
 
-            {/* Existing table (rendered directly inside scroll container)
-                Wrap table in horizontal scroll container for mobile so full row can be reached */}
-            <div
-              className="overflow-x-auto table-responsive"
+            <div className="bg-green-50 p-4 rounded-lg">
+              <div className="flex items-center">
+                <div className="flex-1">
+                  <h2 className="text-green-600 text-lg font-semibold mb-2">Present</h2>
+                  <p className="text-3xl font-bold text-green-700">{calculateDashboardStats(attendanceStatusToday).present}</p>
+                </div>
+                <div className="p-3 bg-green-100 rounded-full">
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-red-50 p-4 rounded-lg">
+              <div className="flex items-center">
+                <div className="flex-1">
+                  <h2 className="text-red-600 text-lg font-semibold mb-2">Absent</h2>
+                  <p className="text-3xl font-bold text-red-700">{calculateDashboardStats(attendanceStatusToday).absent}</p>
+                </div>
+                <div className="p-3 bg-red-100 rounded-full">
+                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 p-4 rounded-lg">
+              <div className="flex items-center">
+                <div className="flex-1">
+                  <h2 className="text-yellow-600 text-lg font-semibold mb-2">On Leave</h2>
+                  <p className="text-3xl font-bold text-yellow-700">
+                    {Object.values(attendanceStatusToday).filter(record => record?.status === 'Leave').length}
+                  </p>
+                </div>
+                <div className="p-3 bg-yellow-100 rounded-full">
+                  <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Table container with dynamic height */}
+          <div 
+            className="flex-1"
+            style={{
+              position: 'relative',
+              height: '100%',
+              overflowY: 'auto',
+              overflowX: 'hidden'
+            }}
+          >
+            <div 
               style={{
-                WebkitOverflowScrolling: 'touch', // momentum on iOS for horizontal scroll
                 overflowX: 'auto',
-                touchAction: 'pan-x', // allow horizontal swipes
+                minWidth: '100%',
+                width: '100%'
               }}
             >
-              <table className="min-w-full w-full">
-               <thead className="bg-gray-50 sticky top-0 z-10">
-                 <tr>
-                   <th className="p-4 text-left text-xs font-medium text-gray-500 uppercase">Employee Name</th>
-                   <th className="p-4 text-center text-xs font-medium text-gray-500 uppercase">Date</th>
-                   <th className="p-4 text-center text-xs font-medium text-gray-500 uppercase">Day</th>
-                   <th className="p-4 text-center text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Time Marked</th>
-                   <th className="p-4 text-center text-xs font-medium text-gray-500 uppercase">Location</th>
-                   <th className="p-4 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
-                 </tr>
-               </thead>
-               <tbody className="divide-y divide-gray-200">
-                 {employees.map((employee) => (
-                   <tr key={employee.id} className="hover:bg-gray-50">
-                     <td className="p-4">
-                       <div className="flex items-center">
-                         <img src={employee.photo} alt="" className="w-8 h-8 rounded-full mr-3" />
-                         <div>
-                           <div className="font-medium text-gray-900">{employee.name}</div>
-                           <div className="text-sm text-gray-500">{employee.job_title}</div>
-                         </div>
-                       </div>
-                     </td>
-                     <td className="p-4 text-center text-sm text-gray-500">
-                       {attendanceStatusToday[employee.id]?.date ? formatDate(attendanceStatusToday[employee.id].date) : '-'}
-                     </td>
-                     <td className="p-4 text-center text-sm text-gray-500">
-                       {attendanceStatusToday[employee.id]?.day || '-'}
-                     </td>
-                     <td className="p-4 text-center">
-                       {attendanceStatusToday[employee.id]?.time ? (
-                         <div className="flex flex-col">
-                           <span className="font-medium text-gray-900">{formatTime(attendanceStatusToday[employee.id].time).time24}</span>
-                           <span className="text-xs text-gray-500">{formatTime(attendanceStatusToday[employee.id].time).time12}</span>
-                         </div>
-                       ) : '-'}
-                     </td>
-                     <td className="p-4 text-center">
-                       {attendanceStatusToday[employee.id]?.location ? (
-                         <div className="flex flex-col items-center">
-                           <button onClick={() => window.open('https://www.google.com/maps', '_blank')} className="text-blue-600 hover:text-blue-800 text-sm">View Location</button>
-                           <span className="text-xs text-gray-500 mt-1 select-all">{attendanceStatusToday[employee.id].location}</span>
-                         </div>
-                       ) : '-'}
-                     </td>
-                     <td className="p-4 text-center">
-                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                         attendanceStatusToday[employee.id]?.status === 'Present' ? 'bg-green-100 text-green-800' :
-                         attendanceStatusToday[employee.id]?.status === 'Absent' ? 'bg-red-100 text-red-800' :
-                         'bg-gray-100 text-gray-800'
-                       }`}>
-                         {capitalize(attendanceStatusToday[employee.id]?.status || 'Not Marked')}
-                       </span>
-                     </td>
-                   </tr>
-                 ))}
-               </tbody>
+              <table className="w-full table-auto" style={{ minWidth: '800px' }}>
+                <thead className="bg-gray-50 sticky top-0 z-10">
+                  <tr>
+                    <th className="p-4 text-left text-xs font-medium text-gray-500 uppercase">Employee Name</th>
+                    <th className="p-4 text-center text-xs font-medium text-gray-500 uppercase">Date</th>
+                    <th className="p-4 text-center text-xs font-medium text-gray-500 uppercase">Day</th>
+                    <th className="p-4 text-center text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Time Marked</th>
+                    <th className="p-4 text-center text-xs font-medium text-gray-500 uppercase">Location</th>
+                    <th className="p-4 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {employees.map((employee) => (
+                    <tr key={employee.id} className="hover:bg-gray-50">
+                      <td className="p-4">
+                        <div className="flex items-center">
+                          <img src={employee.photo} alt="" className="w-8 h-8 rounded-full mr-3" />
+                          <div>
+                            <div className="font-medium text-gray-900">{employee.name}</div>
+                            <div className="text-sm text-gray-500">{employee.job_title}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-4 text-center text-sm text-gray-500">
+                        {attendanceStatusToday[employee.id]?.date ? formatDate(attendanceStatusToday[employee.id].date) : '-'}
+                      </td>
+                      <td className="p-4 text-center text-sm text-gray-500">
+                        {attendanceStatusToday[employee.id]?.day || '-'}
+                      </td>
+                      <td className="p-4 text-center">
+                        {attendanceStatusToday[employee.id]?.time ? (
+                          <div className="flex flex-col">
+                            <span className="font-medium text-gray-900">{formatTime(attendanceStatusToday[employee.id].time).time24}</span>
+                            <span className="text-xs text-gray-500">{formatTime(attendanceStatusToday[employee.id].time).time12}</span>
+                          </div>
+                        ) : '-'}
+                      </td>
+                      <td className="p-4 text-center">
+                        {attendanceStatusToday[employee.id]?.location ? (
+                          <div className="flex flex-col items-center">
+                            <button onClick={() => window.open('https://www.google.com/maps', '_blank')} className="text-blue-600 hover:text-blue-800 text-sm">View Location</button>
+                            <span className="text-xs text-gray-500 mt-1 select-all">{attendanceStatusToday[employee.id].location}</span>
+                          </div>
+                        ) : '-'}
+                      </td>
+                      <td className="p-4 text-center">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          attendanceStatusToday[employee.id]?.status === 'Present' ? 'bg-green-100 text-green-800' :
+                          attendanceStatusToday[employee.id]?.status === 'Absent' ? 'bg-red-100 text-red-800' :
+                          attendanceStatusToday[employee.id]?.status === 'Leave' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {capitalize(attendanceStatusToday[employee.id]?.status || 'Not Marked')}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
               </table>
             </div>
           </div>
