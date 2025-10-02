@@ -42,6 +42,7 @@ const HistoryAdminAttendance = ({ selectedEmployee }) => {
   useEffect(() => {
     const fetchAttendanceHistory = async () => {
       if (!selectedEmployee?.id) {
+        console.log('No selected employee or invalid ID');
         setAttendanceData([]);
         setLoading(false);
         return;
@@ -49,39 +50,53 @@ const HistoryAdminAttendance = ({ selectedEmployee }) => {
       
       setLoading(true);
       try {
+        console.log('Fetching attendance for employee ID:', selectedEmployee.id);
         const response = await axiosInstance.get(`attendance/monthly/${selectedEmployee.id}/`);
         
-        if (!response.data || !Array.isArray(response.data)) {
-          throw new Error('Invalid data received from server');
+        console.log('Raw API response:', response.data);
+
+        if (!response.data) {
+          console.log('No data received from API');
+          setAttendanceData([]);
+          return;
         }
 
-        // Filter records for the selected employee only
-        const allRecords = response.data
-          .filter(month => {
-            // Only include records that belong to the selected employee
-            return month.daily_records?.some(record => record.monthly === selectedEmployee.id);
-          })
-          .flatMap(month => 
-            month.daily_records
-              .filter(record => record.monthly === selectedEmployee.id) // Additional filter to ensure only selected employee records
-              .map(record => ({
-                ...record,
-                year: month.year,
-                month: month.month
-              }))
-          );
+        // Flatten the monthly records into a single array
+        const flattenedRecords = [];
+        response.data.forEach(monthData => {
+          if (monthData.daily_records && Array.isArray(monthData.daily_records)) {
+            monthData.daily_records.forEach(record => {
+              if (record) {
+                flattenedRecords.push({
+                  ...record,
+                  year: monthData.year,
+                  month: monthData.month
+                });
+              }
+            });
+          }
+        });
+
+        console.log('Flattened records:', flattenedRecords);
+
+        const sortedData = flattenedRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
+        console.log('Sorted data:', sortedData);
         
-        const sortedData = allRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
         setAttendanceData(sortedData);
         setError(null);
-        
+
         // Auto-expand current month
         const today = new Date();
         const currentYearMonth = `${today.getFullYear()}-${today.getMonth() + 1}`;
         setExpandedYearMonths(new Set([currentYearMonth]));
+
       } catch (err) {
-        console.error("Failed to fetch attendance history:", err);
-        setError(`Failed to load attendance history for ${selectedEmployee.name}`);
+        console.error("Fetch error details:", {
+          message: err.message,
+          response: err.response?.data,
+          status: err.response?.status
+        });
+        setError(`Failed to load attendance history: ${err.message}`);
         setAttendanceData([]);
       } finally {
         setLoading(false);
@@ -89,7 +104,7 @@ const HistoryAdminAttendance = ({ selectedEmployee }) => {
     };
 
     fetchAttendanceHistory();
-  }, [selectedEmployee]); // Dependency on selectedEmployee ensures refresh when employee changes
+  }, [selectedEmployee]);
 
   const toggleYearMonth = (yearMonth) => {
     setExpandedYearMonths(prev => {
@@ -104,28 +119,37 @@ const HistoryAdminAttendance = ({ selectedEmployee }) => {
   };
 
   const groupByYearAndMonth = (data) => {
-    // Sort data by date in descending order first
-    const sortedData = [...data].sort((a, b) => new Date(b.date) - new Date(a.date));
-    
-    return sortedData.reduce((acc, record) => {
-      const date = new Date(record.date);
-      const year = date.getFullYear();
-      const month = date.getMonth() + 1;
-      const yearMonth = `${year}-${month}`;
+    if (!Array.isArray(data)) {
+      console.error('Invalid data passed to groupByYearAndMonth:', data);
+      return {};
+    }
 
-      if (!acc[yearMonth]) {
-        acc[yearMonth] = {
-          year,
-          month,
-          records: []
-        };
+    return data.reduce((acc, record) => {
+      try {
+        const date = new Date(record.date);
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        const yearMonth = `${year}-${month}`;
+
+        if (!acc[yearMonth]) {
+          acc[yearMonth] = {
+            year,
+            month,
+            records: []
+          };
+        }
+
+        acc[yearMonth].records.push(record);
+        return acc;
+      } catch (error) {
+        console.error('Error processing record:', record, error);
+        return acc;
       }
-
-      // Add record to the month's records
-      acc[yearMonth].records.push(record);
-      return acc;
     }, {});
   };
+
+  // Add this debug log
+  console.log('Current attendance data:', attendanceData);
 
   if (loading) {
     return <div className="text-center p-4">Loading...</div>;
@@ -145,21 +169,12 @@ const HistoryAdminAttendance = ({ selectedEmployee }) => {
 
   return (
     <div className="flex-1 bg-white rounded-lg shadow overflow-hidden">
-      <div 
-        className="overflow-y-auto h-full"
-        style={{
-          WebkitOverflowScrolling: 'touch',
-          touchAction: 'pan-y',
-          overscrollBehavior: 'contain',
-          minHeight: 0,
-        }}
-      >
+      <div className="overflow-x-auto">
         {sortedYearMonths.map(([yearMonth, data]) => (
           <div key={yearMonth} className="border-b last:border-b-0">
             <button
               onClick={() => toggleYearMonth(yearMonth)}
               className="w-full text-left p-4 bg-gray-50 hover:bg-gray-100 flex justify-between items-center"
-              style={{ touchAction: 'manipulation' }} // Prevent double-tap zoom on mobile
             >
               <span className="font-medium">
                 {new Date(data.year, data.month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}
@@ -175,14 +190,7 @@ const HistoryAdminAttendance = ({ selectedEmployee }) => {
             </button>
             
             {expandedYearMonths.has(yearMonth) && (
-              <div 
-                className="overflow-x-auto"
-                style={{
-                  WebkitOverflowScrolling: 'touch',
-                  touchAction: 'pan-x pan-y',
-                  overscrollBehavior: 'contain'
-                }}
-              >
+              <div className="overflow-x-auto">
                 <table className="min-w-full">
                   <thead className="bg-gray-50">
                     <tr>

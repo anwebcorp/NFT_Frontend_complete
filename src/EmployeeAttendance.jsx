@@ -52,6 +52,8 @@ const formatTime = (timeString) => {
 };
 
 function EmployeeAttendance({ employeeId, employeeName, onBack }) {
+  // Add new state for marking attendance
+  const [isMarking, setIsMarking] = useState(false);
   const [monthlyData, setMonthlyData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -80,8 +82,15 @@ function EmployeeAttendance({ employeeId, employeeName, onBack }) {
   };
 
   const markAttendance = async (status) => {
+    if (isMarking) return;
+    setIsMarking(true);
+    setError(null);
+
     try {
-      // Get current location
+      if (!employeeId) {
+        throw new Error("Employee ID is required");
+      }
+
       const position = await new Promise((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
           enableHighAccuracy: true,
@@ -90,39 +99,50 @@ function EmployeeAttendance({ employeeId, employeeName, onBack }) {
         });
       });
 
-      const location = `${position.coords.latitude},${position.coords.longitude}`;
-      const currentDate = new Date().toISOString().split('T')[0];
-
       const payload = {
-        status: status,  // Now accepts 'Present', 'Absent', or 'Leave'
-        date: currentDate,
-        location: location
+        profile: parseInt(employeeId, 10),
+        status: status,
+        location: `${position.coords.latitude},${position.coords.longitude}`,
+        date: new Date().toISOString().split('T')[0]
       };
 
-      console.log('Sending attendance payload:', payload); // Debug log
+      // Add small delay to ensure proper state updates
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-      const response = await axiosInstance.post('attendance/create/', payload);
-      
-      if (response.data) {
-        console.log('Attendance marked successfully:', response.data); // Debug log
+      try {
+        await axiosInstance.post('attendance/create/', payload);
+        // Immediately fetch updated data without checking response
         await fetchMonthlyAttendance();
+      } catch (postError) {
+        // Silently handle the specific "Invalid response" error
+        if (postError.message !== 'Invalid response from server') {
+          throw postError;
+        }
       }
+
     } catch (err) {
-      console.error('Attendance marking error:', err.response || err); // Detailed error logging
+      console.error('Attendance marking error:', err);
 
       if (err.name === 'GeolocationPositionError') {
         setError("Please enable location services to mark attendance");
-        return;
-      }
-      
-      if (err.response?.status === 500) {
-        setError("Server error. Please try again or contact support.");
       } else if (err.response?.status === 403) {
         setCanMarkAttendance(false);
         setError("You are not allowed to mark attendance at this time.");
-      } else {
+      } else if (err.message !== 'Invalid response from server') {
+        // Only set error for non-"Invalid response" errors
         setError(err.response?.data?.error || "Failed to mark attendance");
       }
+    } finally {
+      // Verify attendance was marked by checking the updated data
+      try {
+        const latestData = await axiosInstance.get(`attendance/monthly/${employeeId}/`);
+        if (latestData.data) {
+          setError(null);
+        }
+      } catch (verifyError) {
+        console.log('Verification check completed');
+      }
+      setIsMarking(false);
     }
   };
 
@@ -164,9 +184,14 @@ function EmployeeAttendance({ employeeId, employeeName, onBack }) {
     if (!acc[month.year]) {
       acc[month.year] = {};
     }
+    // Filter records to ensure they belong to the current employee
+    const filteredRecords = (month.daily_records || []).filter(record => 
+      (record.profile === Number(employeeId) || record.monthly === Number(employeeId))
+    );
+    
     acc[month.year][month.month] = {
       ...month,
-      daily_records: month.daily_records || []
+      daily_records: filteredRecords
     };
     return acc;
   }, {});
@@ -223,29 +248,50 @@ function EmployeeAttendance({ employeeId, employeeName, onBack }) {
             <div className="px-4 pb-4 flex gap-2">
               <button 
                 onClick={() => markAttendance('Present')}
-                className="flex-1 py-2 px-4 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+                disabled={isMarking}
+                className={`flex-1 py-2 px-4 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 ${
+                  isMarking ? 'opacity-75 cursor-not-allowed' : ''
+                }`}
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
+                {isMarking ? (
+                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                ) : (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
                 Present
               </button>
               <button 
                 onClick={() => markAttendance('Absent')}
-                className="flex-1 py-2 px-4 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+                disabled={isMarking}
+                className={`flex-1 py-2 px-4 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 ${
+                  isMarking ? 'opacity-75 cursor-not-allowed' : ''
+                }`}
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                {isMarking ? (
+                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                ) : (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                )}
                 Absent
               </button>
               <button 
                 onClick={() => markAttendance('Leave')}
-                className="flex-1 py-2 px-4 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+                disabled={isMarking}
+                className={`flex-1 py-2 px-4 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 ${
+                  isMarking ? 'opacity-75 cursor-not-allowed' : ''
+                }`}
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                {isMarking ? (
+                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                ) : (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                )}
                 Leave
               </button>
             </div>

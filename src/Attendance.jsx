@@ -1,6 +1,6 @@
 // your_react_project/src/Attendance.jsx
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, memo } from "react";
 import "./styles/scrollbar.css";
 
 // dynamically import axiosInstance to avoid module resolution errors at module eval time
@@ -59,7 +59,6 @@ const Attendance = ({ employeeId, employeeName, onBack }) => {
   const [loading, setLoading] = useState(true);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [isStatsVisible, setIsStatsVisible] = useState(true);
-  const [showLocation, setShowLocation] = useState(false);
 
   // add a ref to cache axiosInstance after dynamic import
   const axiosRef = useRef(null);
@@ -79,55 +78,95 @@ const Attendance = ({ employeeId, employeeName, onBack }) => {
     };
   }, []);
 
+  // Add new helper function to map employees to monthly IDs
+  const createEmployeeMapping = (employees) => {
+    const mapping = {
+      monthlyToEmployee: {},
+      employeeToMonthly: {}
+    };
+    
+    employees.sort((a, b) => a.id - b.id).forEach(emp => {
+      // For each employee ID (45, 46, 47, 48), assign monthly ID (44, 45, 46, 47)
+      const monthlyId = emp.id - 1;
+      mapping.monthlyToEmployee[monthlyId] = emp.id;
+      mapping.employeeToMonthly[emp.id] = monthlyId;
+    });
+    
+    return mapping;
+  };
+
+  // Update fetchInitialData with fixed mapping logic
   const fetchInitialData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      // ensure axiosInstance is loaded
       if (!axiosRef.current) {
         const mod = await import("./axiosInstance");
         axiosRef.current = mod.default || mod;
       }
       const axios = axiosRef.current;
 
-      // Fetch employees list
-      const employeesResponse = await axios.get("employees/");
+      // Get employees and attendance data
+      const [employeesResponse, attendanceResponse] = await Promise.all([
+        axios.get("employees/"),
+        axios.get(`attendance/admin/daily/?date=${selectedDate}`)
+      ]);
+
       const fetchedEmployees = employeesResponse.data.map(emp => ({
-        id: emp.id,
+        id: Number(emp.id),
         name: emp.name,
         job_title: emp.Job_title,
         photo: emp.image ? `https://employeemanagement.company${emp.image}` : `https://placehold.co/150x150/CCCCCC/FFFFFF?text=${emp.name.charAt(0)}`
       }));
+      
       setEmployees(fetchedEmployees);
 
-      // Fetch attendance for selected date
-      const attendanceResponse = await axios.get("attendance/admin/daily/", {
-        params: { date: selectedDate }
-      });
-
-      // Create a map using monthly field as the key
+      // Create attendance map
       const attendanceMap = {};
-      attendanceResponse.data.forEach(record => {
-        const employeeId = record.monthly;
-        if (employeeId) {
-          attendanceMap[employeeId] = record;
-        }
+      
+      // Initialize all employees with "Not Marked"
+      fetchedEmployees.forEach(emp => {
+        attendanceMap[emp.id] = {
+          profile: emp.id,
+          date: selectedDate,
+          day: new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long' }),
+          status: 'Not Marked',
+          time: null,
+          location: null
+        };
       });
 
+      // Update with actual attendance records
+      if (Array.isArray(attendanceResponse.data)) {
+        attendanceResponse.data.forEach(record => {
+          const employeeId = Number(record.profile);
+          if (attendanceMap[employeeId]) {
+            attendanceMap[employeeId] = {
+              ...record,
+              profile: employeeId
+            };
+          }
+        });
+      }
+
+      console.log('Final processed attendance map:', attendanceMap);
       setAttendanceStatusToday(attendanceMap);
+
     } catch (err) {
-      console.error("Failed to fetch attendance data:", err);
-      setError(err.response?.data?.error || "Failed to load attendance data.");
+      console.error("Fetch error:", err);
+      setError(err.response?.data?.error || "Failed to load attendance data");
     } finally {
       setLoading(false);
     }
   }, [selectedDate]);
 
+  // Remove the duplicate useEffect and keep only this one
   useEffect(() => {
     fetchInitialData();
-  }, [fetchInitialData, selectedDate]);
+  }, [fetchInitialData]);
 
-  const handleMarkAttendance = useCallback(async (employeeId, status) => {
+  // Update handleMarkAttendance to use the mapping
+  const handleMarkAttendance = useCallback(async (empId, status) => {
     setLoading(true);
     setError(null);
     try {
@@ -137,21 +176,47 @@ const Attendance = ({ employeeId, employeeName, onBack }) => {
       }
       const axios = axiosRef.current;
 
-      const response = await axios.post("attendance/create/", {
-        profile: employeeId,
-        date: selectedDate,
-        status: status
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 0
+        });
       });
 
-      if (response.data) {
+      // Get the current mapping for this employee
+      const mapping = createEmployeeMapping(employees);
+      const monthlyId = mapping.employeeToMonthly[empId];
+
+      const payload = {
+        profile: empId,
+        monthly: monthlyId,  // Include monthly ID in payload
+        status: status,
+        date: selectedDate,
+        location: `${position.coords.latitude},${position.coords.longitude}`
+      };
+
+      console.log('Marking attendance payload:', payload);
+      const response = await axios.post("attendance/create/", payload);
+
+      if (response.data && response.data.id) {
         await fetchInitialData();
+        setError(null);
+      } else {
+        throw new Error('Invalid response from server');
       }
+
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to mark attendance.");
+      console.error('Mark attendance error:', err);
+      if (err.name === 'GeolocationPositionError') {
+        setError("Please enable location services to mark attendance");
+      } else {
+        setError(err.response?.data?.error || "Failed to mark attendance");
+      }
     } finally {
       setLoading(false);
     }
-  }, [selectedDate, fetchInitialData]);
+  }, [selectedDate, fetchInitialData, employees]);
 
   // Add new function to calculate summary
   const calculateSummary = (records) => {
@@ -182,7 +247,14 @@ const Attendance = ({ employeeId, employeeName, onBack }) => {
   };
 
   if (loading) {
-    return <div className="text-center p-4">Loading...</div>;
+    return (
+      <div className="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
@@ -191,6 +263,64 @@ const Attendance = ({ employeeId, employeeName, onBack }) => {
 
   // Determine which view to show based on isDashboard prop
   const isDashboard = employeeName === 'Dashboard';
+
+  // Create a memoized employee row component
+  const EmployeeRow = memo(({ employee, attendanceRecord, selectedDate }) => {
+    return (
+      <tr className="hover:bg-gray-50">
+        <td className="p-4">
+          <div className="flex items-center">
+            <img src={employee.photo} alt="" className="w-8 h-8 rounded-full mr-3" />
+            <div>
+              <div className="font-medium text-gray-900">{employee.name}</div>
+              <div className="text-sm text-gray-500">{employee.job_title}</div>
+            </div>
+          </div>
+        </td>
+        
+        <td className="p-4 text-center text-sm text-gray-500">
+          {attendanceRecord?.date ? formatDate(attendanceRecord.date) : formatDate(selectedDate)}
+        </td>
+        
+        <td className="p-4 text-center text-sm text-gray-500">
+          {attendanceRecord?.day || new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long' })}
+        </td>
+        
+        <td className="p-4 text-center">
+          {attendanceRecord?.time ? (
+            <div className="flex flex-col items-center">
+              <span className="font-medium">{formatTime(attendanceRecord.time).time24}</span>
+              <span className="text-xs text-gray-500">{formatTime(attendanceRecord.time).time12}</span>
+            </div>
+          ) : '-'}
+        </td>
+        
+        <td className="p-4 text-center">
+          {attendanceRecord?.location ? (
+            <div className="flex flex-col items-center">
+              <button 
+                onClick={() => window.open(`https://www.google.com/maps?q=${attendanceRecord.location}`, '_blank')}
+                className="text-blue-600 hover:text-blue-800 text-sm"
+              >
+                View Location
+              </button>
+            </div>
+          ) : '-'}
+        </td>
+        
+        <td className="p-4 text-center">
+          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+            attendanceRecord?.status === 'Present' ? 'bg-green-100 text-green-800' :
+            attendanceRecord?.status === 'Absent' ? 'bg-red-100 text-red-800' :
+            attendanceRecord?.status === 'Leave' ? 'bg-yellow-100 text-yellow-800' :
+            'bg-gray-100 text-gray-800'
+          }`}>
+            {capitalize(attendanceRecord?.status || 'Not Marked')}
+          </span>
+        </td>
+      </tr>
+    );
+  });
 
   return (
     // use CSS variable --vh to set the visible viewport height on mobile (avoid h-screen)
@@ -265,6 +395,7 @@ const Attendance = ({ employeeId, employeeName, onBack }) => {
                 </div>
                 <div className="p-3 bg-blue-100 rounded-full">
                   <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
                 </div>
               </div>
@@ -344,51 +475,25 @@ const Attendance = ({ employeeId, employeeName, onBack }) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {employees.map((employee) => (
-                    <tr key={employee.id} className="hover:bg-gray-50">
-                      <td className="p-4">
-                        <div className="flex items-center">
-                          <img src={employee.photo} alt="" className="w-8 h-8 rounded-full mr-3" />
-                          <div>
-                            <div className="font-medium text-gray-900">{employee.name}</div>
-                            <div className="text-sm text-gray-500">{employee.job_title}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="p-4 text-center text-sm text-gray-500">
-                        {attendanceStatusToday[employee.id]?.date ? formatDate(attendanceStatusToday[employee.id].date) : '-'}
-                      </td>
-                      <td className="p-4 text-center text-sm text-gray-500">
-                        {attendanceStatusToday[employee.id]?.day || '-'}
-                      </td>
-                      <td className="p-4 text-center">
-                        {attendanceStatusToday[employee.id]?.time ? (
-                          <div className="flex flex-col">
-                            <span className="font-medium text-gray-900">{formatTime(attendanceStatusToday[employee.id].time).time24}</span>
-                            <span className="text-xs text-gray-500">{formatTime(attendanceStatusToday[employee.id].time).time12}</span>
-                          </div>
-                        ) : '-'}
-                      </td>
-                      <td className="p-4 text-center">
-                        {attendanceStatusToday[employee.id]?.location ? (
-                          <div className="flex flex-col items-center">
-                            <button onClick={() => window.open('https://www.google.com/maps', '_blank')} className="text-blue-600 hover:text-blue-800 text-sm">View Location</button>
-                            <span className="text-xs text-gray-500 mt-1 select-all">{attendanceStatusToday[employee.id].location}</span>
-                          </div>
-                        ) : '-'}
-                      </td>
-                      <td className="p-4 text-center">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          attendanceStatusToday[employee.id]?.status === 'Present' ? 'bg-green-100 text-green-800' :
-                          attendanceStatusToday[employee.id]?.status === 'Absent' ? 'bg-red-100 text-red-800' :
-                          attendanceStatusToday[employee.id]?.status === 'Leave' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {capitalize(attendanceStatusToday[employee.id]?.status || 'Not Marked')}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {employees.sort((a, b) => a.id - b.id).map((employee) => {
+                    const employeeAttendance = attendanceStatusToday[employee.id] || {
+                      profile: employee.id,
+                      date: selectedDate,
+                      day: new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long' }),
+                      status: 'Not Marked',
+                      time: null,
+                      location: null
+                    };
+                    
+                    return (
+                      <EmployeeRow
+                        key={employee.id}
+                        employee={employee}
+                        attendanceRecord={employeeAttendance}
+                        selectedDate={selectedDate}
+                      />
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

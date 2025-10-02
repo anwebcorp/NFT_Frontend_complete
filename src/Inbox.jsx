@@ -257,6 +257,7 @@ export default function Inbox({ onBack, currentUsername }) {
         if (isApprover) {
             if (filter === 'all') {
                 return demand.status === 'recommended' ||
+                       demand.status === 'rejected' ||  // This line allows seeing all rejected demands
                        (demand.approved_by_username === currentUsername) ||
                        (demand.status === 'rejected' && demand.rejected_by_username === currentUsername);
             }
@@ -267,7 +268,7 @@ export default function Inbox({ onBack, currentUsername }) {
                 return demand.approved_by_username === currentUsername && demand.status !== 'rejected';
             }
             if (filter === 'rejected') {
-                return demand.status === 'rejected' && demand.rejected_by_username === currentUsername;
+                return demand.status === 'rejected';  // This shows all rejected demands, not just ones rejected by approver
             }
         }
 
