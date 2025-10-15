@@ -1155,8 +1155,6 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                     </div>
                 );
             case 'categories':
-                const categoriesBoxSize = getBoxSizeClasses(categories.length);
-                
                 return (
                     <div className="min-h-screen bg-gray-50 p-4">
                         <div className="w-full max-w-4xl mx-auto">
@@ -1164,7 +1162,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                 <h1 className="text-4xl font-extrabold text-white">Categories</h1>
                             </div>
 
-                            <div className="flex flex-wrap justify-center gap-3">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
                                 {/* Add new category button */}
                                 <div 
                                     onClick={async () => {
@@ -1173,39 +1171,39 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                             try {
                                                 await axiosPrivate.post(`projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${selectedIds.monthId}/categories/`, { title });
                                                 setStatusMessage('Category created successfully!');
-                                                fetchData(); // Refresh the list
+                                                fetchData();
                                             } catch (err) {
                                                 setStatusMessage('Failed to create category.');
                                                 console.error("Error creating category:", err);
                                             }
                                         }
                                     }}
-                                    className={`bg-white rounded-xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center ${categoriesBoxSize}`}
+                                    className="bg-white rounded-[25px] shadow-sm hover:shadow-md transition-all duration-200 aspect-square border border-dashed border-gray-200 cursor-pointer flex flex-col items-center justify-center p-6"
                                 >
                                     <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
                                         <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                                         </svg>
                                     </div>
-                                    <p className="text-gray-600 font-medium text-center text-sm">Add New Category</p>
+                                    <p className="text-gray-600 font-medium text-center">Add New Head Expense</p>
                                 </div>
 
                                 {/* List categories */}
-                                {categories.length > 0 && (
-                                    categories.map((category) => (
-                                        <div key={category.id} onClick={() => handleSelectCategory(category.id)} className={`bg-white rounded-xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center ${categoriesBoxSize}`} >
-                                            <h3 className="text-lg font-semibold text-gray-700 mb-2 text-center">{category.title}</h3>
-                                            <p className="text-gray-500 text-sm text-center">Rs {category.total_amount ? category.total_amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : 'none'}</p>
-                                        </div>
-                                    ))
-                                )}
+                                {categories.map((category) => (
+                                    <div 
+                                        key={category.id} 
+                                        onClick={() => handleSelectCategory(category.id)} 
+                                        className="bg-white rounded-[25px] shadow-sm hover:shadow-md transition-all duration-200 aspect-square cursor-pointer flex flex-col items-center justify-center p-6"
+                                    >
+                                        <h3 className="text-lg font-semibold text-gray-800 mb-2">{category.title}</h3>
+                                        <p className="text-2xl font-bold text-gray-900">Rs {category.total_amount ? category.total_amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '0'}</p>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>
                 );
             case 'subcategories':
-                const subcategoriesBoxSize = getBoxSizeClasses(subcategories.length);
-                
                 return (
                     <div className="min-h-screen bg-gray-50 p-4">
                         <div className="w-full max-w-4xl mx-auto">
@@ -1213,9 +1211,9 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                 <h1 className="text-4xl font-extrabold text-white">SubCategories</h1>
                             </div>
 
-                            <div className="flex flex-wrap justify-center gap-3">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
                                 {/* Add new subcategory button */}
-                                <div className={`bg-white rounded-xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center ${subcategoriesBoxSize}`}
+                                <div 
                                     onClick={() => {
                                         const title = prompt('Enter subcategory name (e.g., "CNG"):');
                                         if (title) {
@@ -1235,24 +1233,27 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                             submitForm();
                                         }
                                     }}
+                                    className="bg-white rounded-[25px] shadow-sm hover:shadow-md transition-all duration-200 aspect-square border border-dashed border-gray-200 cursor-pointer flex flex-col items-center justify-center p-6"
                                 >
                                     <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
                                         <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                                         </svg>
                                     </div>
-                                    <p className="text-gray-600 font-medium text-center text-sm">Add New SubCategory</p>
+                                    <p className="text-gray-600 font-medium text-center">Add New SubCategory</p>
                                 </div>
 
                                 {/* List subcategories */}
-                                {subcategories.length > 0 && (
-                                    subcategories.map((sub) => (
-                                        <div key={sub.id} onClick={() => handleSelectSubCategory(sub.id)} className={`bg-white rounded-xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center ${subcategoriesBoxSize}`} >
-                                            <h3 className="text-lg font-semibold text-gray-700 mb-2 text-center">{sub.title}</h3>
-                                            <p className="text-gray-500 text-sm text-center">Rs {sub.total_amount ? sub.total_amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : 'none'}</p>
-                                        </div>
-                                    ))
-                                )}
+                                {subcategories.map((sub) => (
+                                    <div 
+                                        key={sub.id} 
+                                        onClick={() => handleSelectSubCategory(sub.id)} 
+                                        className="bg-white rounded-[25px] shadow-sm hover:shadow-md transition-all duration-200 aspect-square cursor-pointer flex flex-col items-center justify-center p-6"
+                                    >
+                                        <h3 className="text-lg font-semibold text-gray-800 mb-2">{sub.title}</h3>
+                                        <p className="text-2xl font-bold text-gray-900">Rs {sub.total_amount ? sub.total_amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '0'}</p>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>
@@ -1264,6 +1265,23 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                             <div className="bg-blue-600 p-4 rounded-xl shadow-md mb-10 text-center">
                                 <h1 className="text-4xl font-extrabold text-white">Bills</h1>
                             </div>
+                            
+                            {/* Add this new summary section */}
+                            <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="text-center">
+                                        <p className="text-gray-500 text-sm mb-1">Total Bills</p>
+                                        <p className="text-2xl font-bold text-gray-900">{bills.length}</p>
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-gray-500 text-sm mb-1">Total Amount</p>
+                                        <p className="text-2xl font-bold text-green-600">
+                                            Rs {bills.reduce((sum, bill) => sum + parseFloat(bill.amount), 0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0 sm:space-x-4 mb-6">
                                 <div className="flex-1 w-full sm:w-auto relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -1380,8 +1398,9 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
             // Combine all bills into a single array
             const allBills = responses.reduce((acc, resp) => {
                 return [...acc, ...(Array.isArray(resp.data) ? resp.data : [])];
+                
             }, []);
-            
+            console.log('All fetched bills:', allBills);
             setAllProjectBills(allBills);
             setLoading(false);
         } catch (err) {
