@@ -438,9 +438,27 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
     };
 
     const handleBillImageChange = (e) => {
-        // Accept multiple files
         const files = Array.from(e.target.files || []);
-        setBillImages(files);
+        const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        
+        // Filter valid images
+        const validFiles = files.filter(file => {
+            const isValidType = validImageTypes.includes(file.type);
+            const isValidSize = file.size < 5 * 1024 * 1024; // 5MB
+            if (!isValidType) {
+                setStatusMessage(`"${file.name}" is not a valid image format. Please use JPEG, PNG, GIF, or WebP.`);
+            } else if (!isValidSize) {
+                setStatusMessage(`"${file.name}" is too large. Maximum size is 5MB.`);
+            }
+            return isValidType && isValidSize;
+        });
+
+        if (validFiles.length > 0) {
+            setBillImages([...billImages, ...validFiles]); // Append new valid files to existing ones
+            if (validFiles.length !== files.length) {
+                setStatusMessage('Some files were skipped. Only valid images under 5MB are accepted.');
+            }
+        }
     };
 
     const submitNewBill = async (e) => {
@@ -470,13 +488,22 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                 }
             });
             
-            // Append multiple images using the backend's expected field name 'uploaded_images'
+            // Validate and append images
             if (billImages && billImages.length > 0) {
-                billImages.forEach((file) => {
+                // Filter and validate images
+                const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+                const validImages = billImages.filter(file => 
+                    validImageTypes.includes(file.type) && file.size < 5 * 1024 * 1024 // 5MB limit
+                );
+
+                if (validImages.length === 0) {
+                    throw new Error('Please select valid image files (JPEG, PNG, GIF, or WebP) under 5MB each.');
+                }
+
+                // Append each valid image
+                validImages.forEach(file => {
                     formData.append('uploaded_images', file);
                 });
-                // Also append the first file as legacy 'bill_image' to keep compatibility with older endpoints if needed
-                formData.append('bill_image', billImages[0]);
             }
 
             const createBillUrl = `projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${newBillFormData.month_id}/bills/`;
@@ -527,6 +554,33 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
         }
     };
 
+
+    const [selectedImage, setSelectedImage] = useState(null);
+
+    // Image Modal Component
+    const ImageModal = ({ imageUrl, onClose }) => {
+        if (!imageUrl) return null;
+        return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-75" onClick={onClose}>
+                <div className="relative max-w-4xl w-full h-full flex items-center justify-center">
+                    <button 
+                        className="absolute top-4 right-4 text-white hover:text-gray-300 z-50"
+                        onClick={onClose}
+                    >
+                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                    <img 
+                        src={imageUrl} 
+                        alt="Bill" 
+                        className="max-h-full max-w-full object-contain"
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                </div>
+            </div>
+        );
+    };
 
     const BillsTable = ({ billsData, onBillClick = null }) => {
         if (!billsData || billsData.length === 0) {
@@ -592,37 +646,47 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                             {bill.images && bill.images.length > 0 ? (
                                                 <div className="flex items-center space-x-2">
                                                     {bill.images.slice(0, 3).map((img) => (
-                                                        <a
+                                                        <button
                                                             key={img.id}
-                                                            href={img.image}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-blue-600 hover:text-blue-900"
-                                                            onClick={(e) => e.stopPropagation()}
+                                                            className="text-blue-600 hover:text-blue-900 p-1 rounded-full hover:bg-blue-50 transition-colors"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setSelectedImage(img.image);
+                                                            }}
                                                         >
-                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16" />
-                                                            </svg>
-                                                        </a>
+                                                            <img 
+                                                                src={img.image} 
+                                                                alt="Bill thumbnail" 
+                                                                className="w-8 h-8 object-cover rounded-md"
+                                                            />
+                                                        </button>
                                                     ))}
                                                     {bill.images.length > 3 && (
                                                         <span className="text-xs text-gray-400">+{bill.images.length - 3}</span>
                                                     )}
                                                 </div>
                                             ) : bill.bill_image ? (
-                                                <a
-                                                    href={bill.bill_image}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-blue-600 hover:text-blue-900"
-                                                    onClick={(e) => e.stopPropagation()}
+                                                <button
+                                                    className="text-blue-600 hover:text-blue-900 p-1 rounded-full hover:bg-blue-50 transition-colors"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedImage(bill.bill_image);
+                                                    }}
                                                 >
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16" />
-                                                    </svg>
-                                                </a>
+                                                    <img 
+                                                        src={bill.bill_image} 
+                                                        alt="Bill thumbnail" 
+                                                        className="w-8 h-8 object-cover rounded-md"
+                                                    />
+                                                </button>
                                             ) : (
                                                 <span className="text-gray-300">-</span>
+                                            )}
+                                            {selectedImage && (
+                                                <ImageModal 
+                                                    imageUrl={selectedImage} 
+                                                    onClose={() => setSelectedImage(null)} 
+                                                />
                                             )}
                                         </td>
                                     </tr>
@@ -636,6 +700,11 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
     };
 
     const BillCard = ({ bill, detailed = false }) => {
+        // Error boundary
+        if (!bill) {
+            return <div className="text-red-500">Error: Bill data is missing</div>;
+        }
+
         // Use the new, more efficient category_name and subcategory_name fields if they exist
         const categoryName = bill.category_name || (categories.find(cat => cat.id === bill.category)?.title) || 'N/A';
         const subcategoryName = bill.subcategory_name || (subcategories.find(subcat => subcat.id === bill.subcategory)?.title) || 'N/A';
@@ -736,19 +805,40 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                 <div className="flex flex-wrap gap-3">
                                     {bill.images && bill.images.length > 0 ? (
                                         bill.images.map((img) => (
-                                            <a key={img.id} href={img.image} target="_blank" rel="noopener noreferrer" className="inline-block">
-                                                <img src={img.image} alt="bill" className="w-40 h-28 object-cover rounded-md shadow-sm" />
-                                            </a>
+                                            <button 
+                                                key={img.id} 
+                                                className="inline-block focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
+                                                onClick={() => setSelectedImage(img.image)}
+                                            >
+                                                <img 
+                                                    src={img.image} 
+                                                    alt="bill" 
+                                                    className="w-40 h-28 object-cover rounded-md shadow-sm hover:shadow-md transition-shadow" 
+                                                />
+                                            </button>
                                         ))
                                     ) : null}
                                     {(!bill.images || bill.images.length === 0) && bill.bill_image && (
-                                        <a href={bill.bill_image} target="_blank" rel="noopener noreferrer" className="inline-block">
-                                            <img src={bill.bill_image} alt="bill" className="w-40 h-28 object-cover rounded-md shadow-sm" />
-                                        </a>
+                                        <button 
+                                            className="inline-block focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
+                                            onClick={() => setSelectedImage(bill.bill_image)}
+                                        >
+                                            <img 
+                                                src={bill.bill_image} 
+                                                alt="bill" 
+                                                className="w-40 h-28 object-cover rounded-md shadow-sm hover:shadow-md transition-shadow" 
+                                            />
+                                        </button>
                                     )}
                                 </div>
                             </div>
                         ) : null}
+                        {selectedImage && (
+                            <ImageModal 
+                                imageUrl={selectedImage} 
+                                onClose={() => setSelectedImage(null)} 
+                            />
+                        )}
                     </>
                 )}
             </div>
@@ -883,20 +973,45 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                         </div>
                         <div>
                             <label htmlFor="bill_image" className="block text-sm font-medium text-gray-700 mb-1">Bill Image(s)</label>
-                            <input
-                                type="file"
-                                id="bill_image"
-                                name="bill_image"
-                                onChange={handleBillImageChange}
-                                multiple
-                                accept="image/*"
-                                className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50"
-                            />
-                            {billImages && billImages.length > 0 && (
-                                <div className="mt-2 text-sm text-gray-600">
-                                    {billImages.length} file{billImages.length > 1 ? 's' : ''} selected
+                            <div>
+                                <div className="mb-2">
+                                    <div className="text-xs text-gray-600">
+                                        Accepted formats: JPEG, PNG, GIF, WebP (Max 5MB each)
+                                    </div>
                                 </div>
-                            )}
+                                <input
+                                    type="file"
+                                    id="bill_image"
+                                    name="bill_image"
+                                    onChange={handleBillImageChange}
+                                    multiple
+                                    accept="image/jpeg,image/png,image/gif,image/webp"
+                                    className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50"
+                                />
+                                {billImages && billImages.length > 0 && (
+                                    <div className="mt-4 space-y-2">
+                                        <div className="text-sm text-gray-600 font-medium">
+                                            {billImages.length} file{billImages.length > 1 ? 's' : ''} selected:
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {billImages.map((file, index) => (
+                                                <div key={index} className="flex items-center bg-gray-100 rounded-lg p-2">
+                                                    <span className="text-sm text-gray-700 mr-2">{file.name}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setBillImages(billImages.filter((_, i) => i !== index))}
+                                                        className="text-red-500 hover:text-red-700"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         <button
