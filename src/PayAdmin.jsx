@@ -103,6 +103,7 @@ export default function PayAdmin({ employeeId, employeeName, onBack, onPayslipUp
             status: "Unpaid"
         });
         fetchAllPayslips();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [employeeId, employeeName]); // Dependency array: re-run when employeeId or employeeName changes
 
     // Memoized calculation for total earnings and deductions - updated to match backend
@@ -168,8 +169,22 @@ export default function PayAdmin({ employeeId, employeeName, onBack, onPayslipUp
         setFormData(prev => ({ ...prev, allowances: newAllowances }));
     };
 
-    const handleEditClick = () => {
+    const handleEditClick = (e) => {
+        // Prevent any form submission
+        e.preventDefault();
+        e.stopPropagation();
+        
+        console.log('Edit button clicked, setting isEditing to true');
         setIsEditing(true);
+        
+        // Ensure we're working with a copy of the data
+        setFormData(prev => ({
+            ...prev,
+            month: prev.month || '',
+            basic_salary: prev.basic_salary || '',
+            deductions: [...(prev.deductions || [])].map(d => ({...d})),
+            allowances: [...(prev.allowances || [])].map(a => ({...a}))
+        }));
     };
 
     const handleCancelEdit = () => {
@@ -321,27 +336,27 @@ export default function PayAdmin({ employeeId, employeeName, onBack, onPayslipUp
         }).format(num);
     };
 
-    // Add this function before the return statement
+    // Update the handleDownloadPayslip function to properly handle binary data
     const handleDownloadPayslip = async (payslipId) => {
         try {
-            const response = await axiosInstance.get(`https://employeemanagement.company/api/salary-slip/${payslipId}/download/`, {
-                responseType: 'blob'
+            const response = await axiosInstance.get(`salary-slip/${payslipId}/download/`, {
+                responseType: 'blob' // Important: this tells axios to handle the response as binary data
             });
             
-            // Create blob link to download
-            const url = window.URL.createObjectURL(new Blob([response.data]));
+            // Create a URL for the blob
+            const blob = new Blob([response.data], { type: 'application/pdf' });
+            const url = window.URL.createObjectURL(blob);
+            
+            // Create a temporary link and trigger download
             const link = document.createElement('a');
             link.href = url;
             link.setAttribute('download', `payslip-${payslipId}.pdf`);
-            
-            // Append to html link element page
             document.body.appendChild(link);
-            
-            // Start download
             link.click();
             
-            // Clean up and remove the link
-            link.parentNode.removeChild(link);
+            // Cleanup
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
         } catch (err) {
             console.error("Error downloading payslip:", err);
             setError("Failed to download payslip.");
@@ -429,11 +444,13 @@ export default function PayAdmin({ employeeId, employeeName, onBack, onPayslipUp
                                                 name="month"
                                                 value={formData.month}
                                                 onChange={handleFormChange}
-                                                readOnly={!isEditing}
-                                                placeholder="e.g., January 2023"
+                                                disabled={!isEditing}
+                                                placeholder={isEditing ? "e.g., January 2024" : ""}
                                                 className={`w-full p-3 border border-gray-300 rounded-lg ${
                                                     isEditing ? 'bg-white' : 'bg-gray-50'
-                                                } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                                                } focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                                    !isEditing ? 'cursor-not-allowed' : ''
+                                                }`}
                                                 required
                                             />
                                             <div className="absolute inset-y-0 right-0 flex items-center pr-3">
@@ -461,10 +478,12 @@ export default function PayAdmin({ employeeId, employeeName, onBack, onPayslipUp
                                         name="basic_salary"
                                         value={formData.basic_salary}
                                         onChange={handleFormChange}
-                                        readOnly={!isEditing}
+                                        disabled={!isEditing}  // Change readOnly to disabled
                                         className={`w-full pl-12 p-3 border border-gray-300 rounded-lg ${
                                             isEditing ? 'bg-white' : 'bg-gray-50'
-                                        } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                                        } focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                            isEditing ? '' : 'cursor-not-allowed'
+                                        }`}
                                         required
                                     />
                                     <div className="absolute inset-y-0 right-0 flex items-center pr-3">
@@ -495,8 +514,11 @@ export default function PayAdmin({ employeeId, employeeName, onBack, onPayslipUp
                                                     type="text"
                                                     value={deduction.reason}
                                                     onChange={(e) => handleDeductionChange(index, 'reason', e.target.value)}
-                                                    readOnly={!isEditing}
-                                                    className={`w-full px-4 py-2 border rounded-lg ${isEditing ? 'bg-white' : 'bg-neutral-100'}`}
+                                                    disabled={!isEditing}
+                                                    placeholder={isEditing ? "Enter deduction reason" : ""}
+                                                    className={`w-full px-4 py-2 border rounded-lg ${
+                                                        isEditing ? 'bg-white' : 'bg-neutral-100'
+                                                    } ${!isEditing ? 'cursor-not-allowed' : ''}`}
                                                 />
                                             </div>
                                             <div>
@@ -505,8 +527,10 @@ export default function PayAdmin({ employeeId, employeeName, onBack, onPayslipUp
                                                     type="number"
                                                     value={deduction.amount}
                                                     onChange={(e) => handleDeductionChange(index, 'amount', e.target.value)}
-                                                    readOnly={!isEditing}
-                                                    className={`w-full px-4 py-2 border rounded-lg ${isEditing ? 'bg-white' : 'bg-neutral-100'}`}
+                                                    disabled={!isEditing}
+                                                    className={`w-full px-4 py-2 border rounded-lg ${
+                                                        isEditing ? 'bg-white' : 'bg-neutral-100'
+                                                    } ${!isEditing ? 'cursor-not-allowed' : ''}`}
                                                 />
                                             </div>
                                         </div>
@@ -531,8 +555,11 @@ export default function PayAdmin({ employeeId, employeeName, onBack, onPayslipUp
                                                     type="text"
                                                     value={allowance.name}
                                                     onChange={(e) => handleAllowanceChange(index, 'name', e.target.value)}
-                                                    readOnly={!isEditing}
-                                                    className={`w-full px-4 py-2 border rounded-lg ${isEditing ? 'bg-white' : 'bg-neutral-100'}`}
+                                                    disabled={!isEditing}
+                                                    placeholder={isEditing ? "Enter allowance name" : ""}
+                                                    className={`w-full px-4 py-2 border rounded-lg ${
+                                                        isEditing ? 'bg-white' : 'bg-neutral-100'
+                                                    } ${!isEditing ? 'cursor-not-allowed' : ''}`}
                                                 />
                                             </div>
                                             <div>
@@ -541,8 +568,10 @@ export default function PayAdmin({ employeeId, employeeName, onBack, onPayslipUp
                                                     type="number"
                                                     value={allowance.amount}
                                                     onChange={(e) => handleAllowanceChange(index, 'amount', e.target.value)}
-                                                    readOnly={!isEditing}
-                                                    className={`w-full px-4 py-2 border rounded-lg ${isEditing ? 'bg-white' : 'bg-neutral-100'}`}
+                                                    disabled={!isEditing}
+                                                    className={`w-full px-4 py-2 border rounded-lg ${
+                                                        isEditing ? 'bg-white' : 'bg-neutral-100'
+                                                    } ${!isEditing ? 'cursor-not-allowed' : ''}`}
                                                 />
                                             </div>
                                         </div>
@@ -617,34 +646,34 @@ export default function PayAdmin({ employeeId, employeeName, onBack, onPayslipUp
                                                 <button
                                                     type="button"
                                                     onClick={() => handleDownloadPayslip(selectedPayslip.id)}
-                                                    className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                                                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
                                                 >
-                                                    <svg className="w-5 h-5 mr-2 -ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                                                     </svg>
-                                                    Download PDF
+                                                    Download
                                                 </button>
                                             )}
                                             <button
                                                 type="button"
                                                 onClick={handleEditClick}
-                                                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-yellow-900 bg-yellow-100 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors duration-200"
+                                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-yellow-900 bg-yellow-100 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors duration-200"
                                             >
-                                                <svg className="w-5 h-5 mr-2 -ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                                 </svg>
-                                                Edit Payslip
+                                                Edit
                                             </button>
                                             {selectedPayslip && (
                                                 <button
                                                     type="button"
                                                     onClick={() => handleDeletePayslip(selectedPayslip.id)}
-                                                    className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
+                                                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
                                                 >
-                                                    <svg className="w-5 h-5 mr-2 -ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                     </svg>
-                                                    Delete Payslip
+                                                    Delete
                                                 </button>
                                             )}
                                         </>
@@ -654,7 +683,7 @@ export default function PayAdmin({ employeeId, employeeName, onBack, onPayslipUp
                         </div>
                     </main>
 
-                    {/* Footer - Remains the same good design */}
+                    {/* Footer - Modified to remove status button */}
                     <footer className="bg-white border-t border-neutral-200 py-3 px-4 shadow-inner flex justify-around items-center z-10">
                         <button
                             onClick={handleCreateNewPayslip}
@@ -671,13 +700,6 @@ export default function PayAdmin({ employeeId, employeeName, onBack, onPayslipUp
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
                             </svg>
                             <span className="text-xs font-medium">All Payslips</span>
-                        </button>
-                        <button
-                            onClick={() => setShowStatusModal(true)}
-                            className="flex flex-col items-center justify-center text-blue-600 transition-all duration-200 ease-in-out transform hover:scale-105 active:scale-95"
-                        >
-                            <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            <span className="text-xs font-medium">Status</span>
                         </button>
                     </footer>
                 </>

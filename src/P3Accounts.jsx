@@ -32,13 +32,14 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
         date: '',
         amount: '',
         description: '',
-        expense_type: '', // Corresponds to 'category_id' in your old code
-        subcategory_id: '', // Corresponds to 'sub_head'
-        approved_by: '', // Add this field
-        month_id: '' // Add this field
+        expense_type: '', // Corresponds to category_id
+        subcategory_id: '',
+        approved_by: '',
+        month_id: ''
     });
-    const [billImage, setBillImage] = useState(null);
 
+    // Support multiple images
+    const [billImages, setBillImages] = useState([]); // array of File
 
     const [selectedIds, setSelectedIds] = useState({ dailyExpenseId: null, monthId: null, categoryId: null, subcategoryId: null });
     const axiosPrivate = useAxiosPrivate();
@@ -282,7 +283,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                 expense_type: '', subcategory_id: '', approved_by: '',
                 month_id: ''
             });
-            setBillImage(null);
+            setBillImages([]);
             return;
         }
 
@@ -437,7 +438,9 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
     };
 
     const handleBillImageChange = (e) => {
-        setBillImage(e.target.files[0]);
+        // Accept multiple files
+        const files = Array.from(e.target.files || []);
+        setBillImages(files);
     };
 
     const submitNewBill = async (e) => {
@@ -456,23 +459,34 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                 ...newBillFormData,
                 category_id: newBillFormData.expense_type // Map expense_type to category_id
             };
-            delete dataToSend.expense_type; // Remove the expense_type field
+            // Remove the frontend-only field
+            delete dataToSend.expense_type;
             
             // Add all form fields to formData with correct field names
             Object.keys(dataToSend).forEach(key => {
-                if (dataToSend[key]) { // Only add if value exists
-                    formData.append(key, dataToSend[key]);
+                const val = dataToSend[key];
+                if (val !== undefined && val !== null && val !== '') { // Only add if value exists
+                    formData.append(key, val);
                 }
             });
             
-            if (billImage) {
-                formData.append('bill_image', billImage);
+            // Append multiple images using the backend's expected field name 'uploaded_images'
+            if (billImages && billImages.length > 0) {
+                billImages.forEach((file) => {
+                    formData.append('uploaded_images', file);
+                });
+                // Also append the first file as legacy 'bill_image' to keep compatibility with older endpoints if needed
+                formData.append('bill_image', billImages[0]);
             }
 
             const createBillUrl = `projects/${projectId}/heads/${headId}/expenses/${selectedIds.dailyExpenseId}/months/${newBillFormData.month_id}/bills/`;
             
-            // Debug log to verify the data being sent
-            console.log('Submitting bill with data:', Object.fromEntries(formData));
+            // Debug log to verify the data being sent (list keys)
+            const keys = [];
+            for (let pair of formData.entries()) {
+                keys.push(pair[0]);
+            }
+            console.log('Submitting bill with form keys:', keys);
             
             const response = await axiosPrivate.post(createBillUrl, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
@@ -492,7 +506,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                 approved_by: '',
                 month_id: ''
             });
-            setBillImage(null);
+            setBillImages([]);
 
             // Refresh the bills list
             if (newBillFormData.month_id) {
@@ -550,17 +564,17 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                         onClick={onBillClick ? () => onBillClick(bill) : undefined}
                                     >
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {new Date(bill.date).toLocaleDateString('en-US', {
+                                            {bill.date ? new Date(bill.date).toLocaleDateString('en-US', {
                                                 year: 'numeric',
                                                 month: 'short',
                                                 day: '2-digit'
-                                            })}
+                                            }) : 'N/A'}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             {bill.voucher_no}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                                            PKR {parseFloat(bill.amount)}
+                                            PKR {parseFloat(bill.amount || 0)}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
                                             {bill.description}
@@ -574,7 +588,28 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                             {subcategoryName}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {bill.bill_image ? (
+                                            {/* Support both new 'images' and legacy 'bill_image' */}
+                                            {bill.images && bill.images.length > 0 ? (
+                                                <div className="flex items-center space-x-2">
+                                                    {bill.images.slice(0, 3).map((img) => (
+                                                        <a
+                                                            key={img.id}
+                                                            href={img.image}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-blue-600 hover:text-blue-900"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16" />
+                                                            </svg>
+                                                        </a>
+                                                    ))}
+                                                    {bill.images.length > 3 && (
+                                                        <span className="text-xs text-gray-400">+{bill.images.length - 3}</span>
+                                                    )}
+                                                </div>
+                                            ) : bill.bill_image ? (
                                                 <a
                                                     href={bill.bill_image}
                                                     target="_blank"
@@ -583,7 +618,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                                     onClick={(e) => e.stopPropagation()}
                                                 >
                                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16" />
                                                     </svg>
                                                 </a>
                                             ) : (
@@ -605,33 +640,39 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
         const categoryName = bill.category_name || (categories.find(cat => cat.id === bill.category)?.title) || 'N/A';
         const subcategoryName = bill.subcategory_name || (subcategories.find(subcat => subcat.id === bill.subcategory)?.title) || 'N/A';
 
+        const handleCardClick = () => {
+            if (!detailed) {
+                setSelectedBill(bill);
+                setView('singleBillView');
+            }
+        };
+
         return (
-            <div className={`bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200 ${!detailed ? 'cursor-pointer' : ''}`} onClick={!detailed ? () => handleViewBill(bill) : null}>
+            <div className={`bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200 ${!detailed ? 'cursor-pointer' : ''}`} onClick={!detailed ? handleCardClick : undefined}>
                 <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center">
                         <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
                             <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6" />
                             </svg>
                         </div>
                         <div>
                             <h3 className="text-lg font-semibold text-gray-900">{categoryName}</h3>
                             <div className="flex items-center text-sm text-gray-500 mt-1">
                                 <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4h3a2 2 0 012 2v1a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2h2z"></path>
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2 13.692V16a2 2 0 002 2h16a2 2 0 002-2v-2.308"></path>
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4" />
                                 </svg>
-                                {new Date(bill.date).toLocaleDateString('en-US', {
+                                {bill.date ? new Date(bill.date).toLocaleDateString('en-US', {
                                     year: 'numeric',
                                     month: 'long',
                                     day: 'numeric'
-                                })}
+                                }) : 'N/A'}
                             </div>
                         </div>
                     </div>
                     <div className="text-right">
                         <p className="text-sm text-gray-500">Amount</p>
-                        <p className="text-xl font-bold text-gray-900">Rs {parseFloat(bill.amount).toLocaleString()}</p>
+                        <p className="text-xl font-bold text-gray-900">Rs {parseFloat(bill.amount || 0).toLocaleString()}</p>
                     </div>
                 </div>
 
@@ -640,7 +681,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mt-4 pt-4 border-t border-gray-100">
                             <div className="flex items-center">
                                 <svg className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M16 16h.01"></path>
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12" />
                                 </svg>
                                 <div>
                                     <p className="text-gray-500">Voucher Number</p>
@@ -649,7 +690,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                             </div>
                             <div className="flex items-center">
                                 <svg className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a.997.997 0 01-1.414 0l-7-7A1.997 1.997 0 013 12V7a4 4 0 014-4z"></path>
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5" />
                                 </svg>
                                 <div>
                                     <p className="text-gray-500">Expense Type</p>
@@ -659,7 +700,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                             {bill.description && (
                                 <div className="flex items-center col-span-1 sm:col-span-2">
                                     <svg className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11" />
                                     </svg>
                                     <div>
                                         <p className="text-gray-500">Description</p>
@@ -670,7 +711,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                             {subcategoryName && (
                                 <div className="flex items-center">
                                     <svg className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16" />
                                     </svg>
                                     <div>
                                         <p className="text-gray-500">Sub-Head</p>
@@ -680,29 +721,34 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                             )}
                             <div className="flex items-center">
                                 <svg className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0" />
                                 </svg>
                                 <div>
                                     <p className="text-gray-500">Approved By</p>
+                                    <p className="font-medium text-gray-900">{bill.approved_by || '-'}</p>
                                 </div>
                             </div>
                         </div>
-                        {bill.bill_image && (
+
+                        {/* Images gallery */}
+                        {(bill.images && bill.images.length > 0) || bill.bill_image ? (
                             <div className="mt-4 pt-4 border-t border-gray-100">
-                                <a
-                                    href={bill.bill_image}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors duration-200"
-                                >
-                                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                    </svg>
-                                    View Bill Image
-                                </a>
+                                <div className="flex flex-wrap gap-3">
+                                    {bill.images && bill.images.length > 0 ? (
+                                        bill.images.map((img) => (
+                                            <a key={img.id} href={img.image} target="_blank" rel="noopener noreferrer" className="inline-block">
+                                                <img src={img.image} alt="bill" className="w-40 h-28 object-cover rounded-md shadow-sm" />
+                                            </a>
+                                        ))
+                                    ) : null}
+                                    {(!bill.images || bill.images.length === 0) && bill.bill_image && (
+                                        <a href={bill.bill_image} target="_blank" rel="noopener noreferrer" className="inline-block">
+                                            <img src={bill.bill_image} alt="bill" className="w-40 h-28 object-cover rounded-md shadow-sm" />
+                                        </a>
+                                    )}
+                                </div>
                             </div>
-                        )}
+                        ) : null}
                     </>
                 )}
             </div>
@@ -836,14 +882,21 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                             </div>
                         </div>
                         <div>
-                            <label htmlFor="bill_image" className="block text-sm font-medium text-gray-700 mb-1">Bill Image</label>
+                            <label htmlFor="bill_image" className="block text-sm font-medium text-gray-700 mb-1">Bill Image(s)</label>
                             <input
                                 type="file"
                                 id="bill_image"
                                 name="bill_image"
                                 onChange={handleBillImageChange}
-                                className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                multiple
+                                accept="image/*"
+                                className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50"
                             />
+                            {billImages && billImages.length > 0 && (
+                                <div className="mt-2 text-sm text-gray-600">
+                                    {billImages.length} file{billImages.length > 1 ? 's' : ''} selected
+                                </div>
+                            )}
                         </div>
 
                         <button
@@ -904,7 +957,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                         };
                                         submitForm();
                                     }
-                                }} className={`bg-white rounded-xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center ${dailyBoxSize}`} >
+                                }} className={`bg-white rounded-xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center ${dailyBoxSize}`}>
                                     <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
                                         <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -915,7 +968,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                 {/* Existing Yearly Sheets */}
                                 {dailyExpenses.length > 0 && (
                                     dailyExpenses.map((expense) => (
-                                        <div key={expense.id} onClick={() => handleSelectDailyExpense(expense.id)} className={`bg-white rounded-xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center ${dailyBoxSize}`} >
+                                        <div key={expense.id} onClick={() => handleSelectDailyExpense(expense.id)} className={`bg-white rounded-xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center ${dailyBoxSize}`}>
                                             <h3 className="text-lg font-semibold text-gray-700 mb-2 text-center">{expense.title}</h3>
                                             <p className="text-gray-500 text-sm text-center">Rs {expense.total_amount ? expense.total_amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : 'none'}</p>
                                         </div>
@@ -945,7 +998,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                 <div className="flex gap-3 p-2 min-w-min">
                                     {/* Add New Monthly Expense */}
                                     <div
-                                        className={`bg-white rounded-xl shadow-lg p-3 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center flex-shrink-0 ${monthlyBoxSize}`}
+                                        className={`bg-white rounded-xl shadow-lg p-3 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center ${monthlyBoxSize}`}
                                         onClick={async () => {
                                             const title = prompt('Enter month name (e.g., "January"):');
                                             if (title) {
@@ -973,7 +1026,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                         <div
                                             key={month.id}
                                             onClick={() => handleSelectMonthlyExpense(month.id)} // Changed from fetchBillsForMonth to handleSelectMonthlyExpense
-                                            className={`bg-white rounded-xl shadow-lg p-3 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center flex-shrink-0 ${monthlyBoxSize}`}
+                                            className={`bg-white rounded-xl shadow-lg p-3 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center ${monthlyBoxSize}`}
                                         >
                                             <h3 className="text-sm sm:text-base font-semibold text-gray-700 mb-1">{month.title}</h3>
                                             <p className="text-gray-500 text-xs sm:text-sm">
@@ -1088,7 +1141,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                             setStatusMessage('Please create a monthly expense first to add bills.');
                                         }
                                     }}
-                                    className="bg-white rounded-xl shadow-lg p-8 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center min-h-[200px]"
+                                    className="bg-white rounded-xl shadow-lg p-8 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center"
                                 >
                                     <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
                                         <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1099,7 +1152,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                 </div>
                                 <div
                                     onClick={fetchAllProjectBills}
-                                    className="bg-white rounded-xl shadow-lg p-8 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center min-h-[200px]"
+                                    className="bg-white rounded-xl shadow-lg p-8 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 flex flex-col items-center justify-center"
                                 >
                                     <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                                         <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1178,7 +1231,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                             }
                                         }
                                     }}
-                                    className="bg-white rounded-[25px] shadow-sm hover:shadow-md transition-all duration-200 aspect-square border border-dashed border-gray-200 cursor-pointer flex flex-col items-center justify-center p-6"
+                                    className="bg-white rounded-[25px] shadow-sm hover:shadow-md transition-all duration-200 aspect-square border border-dashed border-gray-200 cursor-pointer flex flex-col items-center justify-center"
                                 >
                                     <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
                                         <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1193,7 +1246,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                     <div 
                                         key={category.id} 
                                         onClick={() => handleSelectCategory(category.id)} 
-                                        className="bg-white rounded-[25px] shadow-sm hover:shadow-md transition-all duration-200 aspect-square cursor-pointer flex flex-col items-center justify-center p-6"
+                                        className="bg-white rounded-[25px] shadow-sm hover:shadow-md transition-all duration-200 aspect-square cursor-pointer flex flex-col items-center justify-center p-4"
                                     >
                                         <h3 className="text-lg font-semibold text-gray-800 mb-2">{category.title}</h3>
                                         <p className="text-2xl font-bold text-gray-900">Rs {category.total_amount ? category.total_amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '0'}</p>
@@ -1233,7 +1286,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                             submitForm();
                                         }
                                     }}
-                                    className="bg-white rounded-[25px] shadow-sm hover:shadow-md transition-all duration-200 aspect-square border border-dashed border-gray-200 cursor-pointer flex flex-col items-center justify-center p-6"
+                                    className="bg-white rounded-[25px] shadow-sm hover:shadow-md transition-all duration-200 aspect-square border border-dashed border-gray-200 cursor-pointer flex flex-col items-center justify-center"
                                 >
                                     <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
                                         <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1248,7 +1301,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                     <div 
                                         key={sub.id} 
                                         onClick={() => handleSelectSubCategory(sub.id)} 
-                                        className="bg-white rounded-[25px] shadow-sm hover:shadow-md transition-all duration-200 aspect-square cursor-pointer flex flex-col items-center justify-center p-6"
+                                        className="bg-white rounded-[25px] shadow-sm hover:shadow-md transition-all duration-200 aspect-square cursor-pointer flex flex-col items-center justify-center p-4"
                                     >
                                         <h3 className="text-lg font-semibold text-gray-800 mb-2">{sub.title}</h3>
                                         <p className="text-2xl font-bold text-gray-900">Rs {sub.total_amount ? sub.total_amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '0'}</p>
@@ -1276,7 +1329,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                     <div className="text-center">
                                         <p className="text-gray-500 text-sm mb-1">Total Amount</p>
                                         <p className="text-2xl font-bold text-green-600">
-                                            Rs {bills.reduce((sum, bill) => sum + parseFloat(bill.amount), 0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                            Rs {bills.reduce((sum, bill) => sum + parseFloat(bill.amount || 0), 0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                                         </p>
                                     </div>
                                 </div>
@@ -1292,7 +1345,7 @@ const P3Accounts = ({ projectId, headId, onBack }) => {
                                     <input
                                         type="text"
                                         placeholder="Search by voucher number, description, expense type, or sub-head..."
-                                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+                                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
                                         value={voucherSearchQuery}
                                         onChange={(e) => setVoucherSearchQuery(e.target.value)}
                                         onKeyPress={(e) => {
