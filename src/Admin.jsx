@@ -54,6 +54,8 @@ export default function Admin({ user, setUser }) {
 
     const [showSuppliersPage, setShowSuppliersPage] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
+    const [showLoansPage, setShowLoansPage] = useState(false);
+    const [employeeForLoans, setEmployeeForLoans] = useState(null);
 
     // ⭐ NEW: Add state for Inbox and GenerateDemand pages
     const [showInbox, setShowInbox] = useState(false);
@@ -306,6 +308,12 @@ export default function Admin({ user, setUser }) {
     const handleBackFromSuppliers = useCallback(() => {
         setShowSuppliersPage(false);
     }, []);
+
+    const handleManageLoansClick = useCallback((employee) => {
+        setEmployeeForLoans(employee);
+        setShowLoansPage(true);
+        navigate('/loans', { state: { employee } });
+    }, [navigate]);
 
     const handleNewEmployeeInputChange = (e) => {
         const { name, value } = e.target;
@@ -617,8 +625,8 @@ export default function Admin({ user, setUser }) {
                             </button>
                             </li>
                             <li>
-                                <button
-                                    onClick={() => {
+                            <button
+                                onClick={() => {
                                         setCurrentEmployeeToEdit(employee);
                                         setShowEditForm(true);
                                     }}
@@ -627,13 +635,19 @@ export default function Admin({ user, setUser }) {
                                 Edit Employee
                             </button>
                             </li>
+                            <li>
+                                <button
+                                    onClick={() => handleManageLoansClick(employee)}
+                                    className="w-full py-3 text-blue-600 font-normal text-lg hover:bg-neutral-100 active:bg-neutral-200 transition-colors duration-100 ease-in-out"
+                                >
+                                    Manage Loans
+                                </button>
+                            </li>
                         </ul>
                     </div>
                 </div>
             </div>
-        );
-
-    };
+        );    };
 
     const hasPermission = user?.username === "fiazstores123";
 

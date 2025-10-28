@@ -10,6 +10,7 @@ import Suppliers from "./Suppliers"; // Make sure to import Suppliers
 import PrivateRoute from "./PrivateRoute";
 import { AuthProvider } from "./authContext";
 import Accounts from "./Accounts"; // Add this import
+import Loans from "./Loans"; // Import Loans component
 
 // ⭐ NEW: Import your new components here
 import Inbox from "./Inbox"; 
@@ -108,6 +109,16 @@ function App() {
             element={
               <PrivateRoute allowedId={18} user={user}>
                 <Accounts user={user} setUser={setUser} />
+              </PrivateRoute>
+            }
+          />
+
+          {/* Route for Loans */}
+          <Route
+            path="/loans"
+            element={
+              <PrivateRoute allowedId={18} user={user}>
+                <Loans user={user} setUser={setUser} />
               </PrivateRoute>
             }
           />
