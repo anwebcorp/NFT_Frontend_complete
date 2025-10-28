@@ -80,7 +80,7 @@ function Loans({ user, setUser }) {
         }
       } catch (err) {
         console.error('Error fetching loan data:', err);
-        setError(err.response?.data?.detail || 'Failed to fetch loan data');
+        setError(err.response?.data?.detail || ' ');
       } finally {
         setLoading(false);
       }
