@@ -169,7 +169,7 @@ const HistoryAdminAttendance = ({ selectedEmployee }) => {
 
   return (
     <div className="flex-1 bg-white rounded-lg shadow overflow-hidden">
-      <div className="overflow-x-auto">
+      <div className="w-full h-full" style={{ overflowX: 'scroll', overflowY: 'scroll' }}>
         {sortedYearMonths.map(([yearMonth, data]) => (
           <div key={yearMonth} className="border-b last:border-b-0">
             <button
@@ -190,9 +190,9 @@ const HistoryAdminAttendance = ({ selectedEmployee }) => {
             </button>
             
             {expandedYearMonths.has(yearMonth) && (
-              <div className="overflow-x-auto">
-                <table className="min-w-full">
-                  <thead className="bg-gray-50">
+              <div style={{ overflowX: 'scroll', overflowY: 'scroll' }} className="max-h-[calc(100vh-200px)] w-full">
+                <table className="w-full table-fixed" style={{ minWidth: '800px', maxWidth: '1600px', margin: '0 auto' }}>
+                  <thead className="bg-gray-50 sticky top-0">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Day</th>
