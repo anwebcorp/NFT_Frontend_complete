@@ -348,7 +348,7 @@ const Attendance = ({ employeeId, employeeName, onBack }) => {
           </div>
         </div>
         <div className="text-right">
-          <div className="text-gray-600">Current Date:</div>
+          <div className="text-gray-600">Date:</div>
           <div className="font-medium">{new Date().toLocaleDateString()}</div>
         </div>
       </div>
