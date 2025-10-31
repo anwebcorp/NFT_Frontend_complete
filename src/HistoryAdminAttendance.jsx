@@ -189,13 +189,14 @@ const HistoryAdminAttendance = ({ selectedEmployee }) => {
                   {new Date(data.year, data.month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}
                 </span>
                 <div className="flex space-x-4 text-sm">
-                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded">
+                  {/* Use text-based status styling to match EmployeeAttendance.jsx */}
+                  <span className="text-green-600">
                     Present: {calculateMonthlyTotals(data.records).Present || 0}
                   </span>
-                  <span className="bg-red-100 text-red-800 px-2 py-1 rounded">
+                  <span className="text-red-600">
                     Absent: {calculateMonthlyTotals(data.records).Absent || 0}
                   </span>
-                  <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                  <span className="text-yellow-600">
                     Leave: {calculateMonthlyTotals(data.records).Leave || 0}
                   </span>
                   <svg
