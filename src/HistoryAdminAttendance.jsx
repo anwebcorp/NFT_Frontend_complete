@@ -167,6 +167,14 @@ const HistoryAdminAttendance = ({ selectedEmployee }) => {
     return yearMonthB - yearMonthA;
   });
 
+  // Calculate totals for each month
+  const calculateMonthlyTotals = (records) => {
+    return records.reduce((acc, record) => {
+      acc[record.status] = (acc[record.status] || 0) + 1;
+      return acc;
+    }, {});
+  };
+
   return (
     <div className="flex-1 bg-white rounded-lg shadow overflow-hidden">
       <div className="w-full h-full" style={{ overflowX: 'scroll', overflowY: 'scroll' }}>
@@ -174,19 +182,32 @@ const HistoryAdminAttendance = ({ selectedEmployee }) => {
           <div key={yearMonth} className="border-b last:border-b-0">
             <button
               onClick={() => toggleYearMonth(yearMonth)}
-              className="w-full text-left p-4 bg-gray-50 hover:bg-gray-100 flex justify-between items-center"
+              className="w-full text-left p-4 bg-gray-50 hover:bg-gray-100"
             >
-              <span className="font-medium">
-                {new Date(data.year, data.month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}
-              </span>
-              <svg
-                className={`w-5 h-5 transform transition-transform ${expandedYearMonths.has(yearMonth) ? 'rotate-180' : ''}`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+              <div className="flex justify-between items-center">
+                <span className="font-medium">
+                  {new Date(data.year, data.month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}
+                </span>
+                <div className="flex space-x-4 text-sm">
+                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded">
+                    Present: {calculateMonthlyTotals(data.records).Present || 0}
+                  </span>
+                  <span className="bg-red-100 text-red-800 px-2 py-1 rounded">
+                    Absent: {calculateMonthlyTotals(data.records).Absent || 0}
+                  </span>
+                  <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                    Leave: {calculateMonthlyTotals(data.records).Leave || 0}
+                  </span>
+                  <svg
+                    className={`w-5 h-5 transform transition-transform ${expandedYearMonths.has(yearMonth) ? 'rotate-180' : ''}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
             </button>
             
             {expandedYearMonths.has(yearMonth) && (

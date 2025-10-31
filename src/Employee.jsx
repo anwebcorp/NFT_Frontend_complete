@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import EmployeeDocs from "./EmployeeDocs.jsx"; // Updated import path
 import EmployeePayment from "./EmployeePayment.jsx"; // Updated import path
 import EmployeeAttendance from "./EmployeeAttendance.jsx"; // New import
+import EmpLoan from "./EmpLoan.jsx"; // Import for Loan component
 
 // A generic component to display setting details, simulating an iPhone detail view
 function SettingDetail({ title, content, onBack, isVisible }) {
@@ -74,6 +75,7 @@ export default function Employee({ user, setUser }) {
   const [showDocuments, setShowDocuments] = useState(false); // State to control EmployeeDocuments visibility
   const [showPayment, setShowPayment] = useState(false); // New state to control EmployeePayment visibility
   const [showAttendance, setShowAttendance] = useState(false); // New state to control EmployeeAttendance visibility
+  const [showLoan, setShowLoan] = useState(false); // New state to control EmpLoan visibility
 
   const handleLogout = () => {
     setUser(null);
@@ -141,6 +143,14 @@ export default function Employee({ user, setUser }) {
 
   const handleBackFromAttendance = () => { // New handler to go back from Attendance
     setShowAttendance(false);
+  };
+
+  const handleLoanClick = () => {
+    setShowLoan(true);
+  };
+
+  const handleBackFromLoan = () => {
+    setShowLoan(false);
   };
 
   const handleGlobalBack = () => {
@@ -296,6 +306,16 @@ export default function Employee({ user, setUser }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
                 </svg>
               </li>
+              {/* Loan */}
+              <li
+                className="flex justify-between items-center py-3 px-4 active:bg-neutral-100 cursor-pointer"
+                onClick={handleLoanClick}
+              >
+                <span className="text-neutral-800">Loan</span>
+                <svg className="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+              </li>
             </ul>
           </div>
 
@@ -379,6 +399,20 @@ export default function Employee({ user, setUser }) {
             employeeId={user?.profile?.id || user?.id} // Pass employeeId to EmployeeAttendance
             employeeName={user?.name} // Pass employeeName to EmployeeAttendance
             onBack={handleBackFromAttendance}
+          />
+        )}
+      </div>
+
+      {/* EmpLoan Component - Slides in when showLoan is true */}
+      <div className={`fixed inset-0 bg-neutral-50 z-20 flex flex-col font-sans
+                   transition-transform duration-300 ease-out
+                   ${showLoan ? 'translate-x-0' : 'translate-x-full'}`}
+      >
+        {showLoan && (
+          <EmpLoan
+            employeeId={user?.profile?.id || user?.id}
+            employeeName={user?.name}
+            onBack={handleBackFromLoan}
           />
         )}
       </div>
