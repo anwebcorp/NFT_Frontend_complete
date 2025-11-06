@@ -279,6 +279,16 @@ export default function Employee({ user, setUser }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
                 </svg>
               </li>
+              {/* Basic Salary */}
+              <li
+                className="flex justify-between items-center py-3 px-4 active:bg-neutral-100 cursor-pointer"
+                onClick={handleBasicSalaryClick}
+              >
+                <span className="text-neutral-800">Basic Salary</span>
+                <svg className="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+              </li>
             </ul>
           </div>
 
@@ -321,16 +331,6 @@ export default function Employee({ user, setUser }) {
                 onClick={handleLoanClick}
               >
                 <span className="text-neutral-800">Loan</span>
-                <svg className="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
-                </svg>
-              </li>
-              {/* Basic Salary */}
-              <li
-                className="flex justify-between items-center py-3 px-4 active:bg-neutral-100 cursor-pointer"
-                onClick={handleBasicSalaryClick}
-              >
-                <span className="text-neutral-800">Basic Salary</span>
                 <svg className="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
                 </svg>
