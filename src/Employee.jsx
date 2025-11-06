@@ -76,6 +76,7 @@ export default function Employee({ user, setUser }) {
   const [showPayment, setShowPayment] = useState(false); // New state to control EmployeePayment visibility
   const [showAttendance, setShowAttendance] = useState(false); // New state to control EmployeeAttendance visibility
   const [showLoan, setShowLoan] = useState(false); // New state to control EmpLoan visibility
+  const [showBasicSalary, setShowBasicSalary] = useState(false); // New state to control Basic Salary visibility
 
   const handleLogout = () => {
     setUser(null);
@@ -151,6 +152,14 @@ export default function Employee({ user, setUser }) {
 
   const handleBackFromLoan = () => {
     setShowLoan(false);
+  };
+
+  const handleBasicSalaryClick = () => {
+    setShowBasicSalary(true);
+  };
+
+  const handleBackFromBasicSalary = () => {
+    setShowBasicSalary(false);
   };
 
   const handleGlobalBack = () => {
@@ -316,6 +325,16 @@ export default function Employee({ user, setUser }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
                 </svg>
               </li>
+              {/* Basic Salary */}
+              <li
+                className="flex justify-between items-center py-3 px-4 active:bg-neutral-100 cursor-pointer"
+                onClick={handleBasicSalaryClick}
+              >
+                <span className="text-neutral-800">Basic Salary</span>
+                <svg className="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+              </li>
             </ul>
           </div>
 
@@ -413,6 +432,21 @@ export default function Employee({ user, setUser }) {
             employeeId={user?.profile?.id || user?.id}
             employeeName={user?.name}
             onBack={handleBackFromLoan}
+          />
+        )}
+      </div>
+
+      {/* Basic Salary Component - Slides in when showBasicSalary is true */}
+      <div className={`fixed inset-0 bg-neutral-50 z-20 flex flex-col font-sans
+                   transition-transform duration-300 ease-out
+                   ${showBasicSalary ? 'translate-x-0' : 'translate-x-full'}`}
+      >
+        {showBasicSalary && (
+          <SettingDetail
+            title="Basic Salary"
+            content={user?.basic_salary || "N/A"}
+            onBack={handleBackFromBasicSalary}
+            isVisible={showBasicSalary}
           />
         )}
       </div>
