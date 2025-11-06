@@ -1,24 +1,23 @@
 import React, { useState, useEffect, useMemo } from "react";
 import axiosInstance from './axiosInstance'; // Import axiosInstance
 
-// Add onPayslipUpdate to the destructured props
-export default function PayAdmin({ employeeId, employeeName, onBack, onPayslipUpdate }) {
+// Add employeeBasicSalary to the destructured props
+export default function PayAdmin({ employeeId, employeeName, employeeBasicSalary, onBack, onPayslipUpdate }) {
     const [allPayslips, setAllPayslips] = useState([]);
     const [selectedPayslip, setSelectedPayslip] = useState(null); // The payslip currently displayed/edited
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
-    const [showStatusModal, setShowStatusModal] = useState(false); // State for showing status modal
     const [currentScreen, setCurrentScreen] = useState('payslipDetail'); // New state for managing current view
 
     // Initial form state (will be populated from selectedPayslip or for a new month)
     const [formData, setFormData] = useState({
         profile: employeeId,
         month: "",
-        basic_salary: '',  // Changed from 0 to empty string
+        basic_salary: 0,  // Changed to match backend default value
         deductions: [],
         allowances: [],
-        status: "Unpaid" // Default status for new payslips
+        payment_status: "unpaid" // Default status for new payslips - matching backend's values
     });
 
     // Helper to parse month strings for consistent sorting
@@ -57,20 +56,20 @@ export default function PayAdmin({ employeeId, employeeName, onBack, onPayslipUp
                 setFormData({
                     profile: employeeId,
                     month: latestPayslip.month,
-                    basic_salary: Number(latestPayslip.basic_salary || 0), // CONVERT TO NUMBER
-                    deductions: latestPayslip.deductions || [], // Ensure deductions is an array
-                    allowances: latestPayslip.allowances || [], // Ensure allowances is an array
-                    status: latestPayslip.status
+                    basic_salary: Number(employeeBasicSalary) || Number(latestPayslip.basic_salary || 0),
+                    deductions: latestPayslip.deductions || [],
+                    allowances: latestPayslip.allowances || [],
+                    payment_status: latestPayslip.payment_status || 'unpaid'
                 });
             } else {
                 setSelectedPayslip(null);
                 setFormData(prev => ({ // Reset formData for a new, empty payslip
                     ...prev,
                     month: "",
-                    basic_salary: '',
+                    basic_salary: employeeBasicSalary || 0,
                     deductions: [],
                     allowances: [],
-                    status: "Unpaid"
+                    payment_status: "unpaid"
                 }));
             }
             setCurrentScreen('payslipDetail'); // Always show payslip detail after fetching
@@ -86,25 +85,32 @@ export default function PayAdmin({ employeeId, employeeName, onBack, onPayslipUp
 
     // Effect to re-fetch payslips when employeeId changes
     useEffect(() => {
-        console.log("PayAdmin: useEffect triggered. Current employeeId:", employeeId, "EmployeeName:", employeeName); // Debugging line
+        console.log("PayAdmin: useEffect triggered.");
+        console.log("Current employeeId:", employeeId);
+        console.log("EmployeeName:", employeeName);
+        console.log("EmployeeBasicSalary:", employeeBasicSalary);
         setLoading(true);
+        
         // Reset state when employeeId changes, before fetching new data
         setAllPayslips([]);
         setSelectedPayslip(null);
         setIsEditing(false);
-        setShowStatusModal(false);
         setCurrentScreen('payslipDetail'); // Reset current screen
+        
+        // Log the value we're about to set
+        console.log("Setting basic_salary to:", employeeBasicSalary || 0);
+        
         setFormData({
             profile: employeeId, // Ensure profile is updated for the new employee
             month: "",
-            basic_salary: '',
+            basic_salary: employeeBasicSalary || 0, // Use the employee's current basic salary from props
             deductions: [],
             allowances: [],
             status: "Unpaid"
         });
         fetchAllPayslips();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [employeeId, employeeName]); // Dependency array: re-run when employeeId or employeeName changes
+    }, [employeeId, employeeName, employeeBasicSalary]); // Dependency array: re-run when employeeId or employeeName changes
 
     // Memoized calculation for total earnings and deductions - updated to match backend
     const employeeSummary = useMemo(() => {
@@ -129,6 +135,9 @@ export default function PayAdmin({ employeeId, employeeName, onBack, onPayslipUp
     // Handlers for form changes
     const handleFormChange = (e) => {
         const { name, value, type } = e.target;
+        // Prevent changing basic_salary
+        if (name === 'basic_salary') return;
+        
         setFormData(prev => ({
             ...prev,
             // If the input type is 'number', parse the value to a float. Handle empty string as 0.
@@ -217,8 +226,15 @@ export default function PayAdmin({ employeeId, employeeName, onBack, onPayslipUp
         setError(null);
 
         // Basic validation
-        if (!formData.month || Number(formData.basic_salary) <= 0) { // Ensure basic_salary is number for comparison
-            setError("Month and Basic Salary are required and Basic Salary must be greater than 0.");
+        if (!formData.month) {
+            setError("Month is required.");
+            setLoading(false);
+            return;
+        }
+        // Validate basic_salary as positive integer to match backend PositiveIntegerField
+        const basicSalary = Number(formData.basic_salary);
+        if (!Number.isInteger(basicSalary) || basicSalary <= 0) {
+            setError("Basic Salary must be a positive integer.");
             setLoading(false);
             return;
         }
@@ -258,10 +274,10 @@ export default function PayAdmin({ employeeId, employeeName, onBack, onPayslipUp
         setFormData({
             profile: employeeId,
             month: payslip.month,
-            basic_salary: Number(payslip.basic_salary || 0), // CONVERT TO NUMBER
-            deductions: payslip.deductions || [], // Ensure deductions is an array
-            allowances: payslip.allowances || [], // Ensure allowances is an array
-            status: payslip.status
+            basic_salary: Number(payslip.basic_salary || 0),
+            deductions: payslip.deductions || [],
+            allowances: payslip.allowances || [],
+            payment_status: payslip.payment_status || 'unpaid'
         });
         setIsEditing(false); // Always start with view mode
         setCurrentScreen('payslipDetail'); // Go back to the payslip detail screen
@@ -272,10 +288,10 @@ export default function PayAdmin({ employeeId, employeeName, onBack, onPayslipUp
         setFormData({ // Reset form for new entry
             profile: employeeId,
             month: "",
-            basic_salary: '',  // Changed from 0 to empty string
+            basic_salary: employeeBasicSalary || 0,
             deductions: [],
             allowances: [],
-            status: "Unpaid"
+            payment_status: "unpaid"
         });
         setIsEditing(true); // Automatically go to edit mode for new payslip
         setCurrentScreen('payslipDetail'); // Ensure we are on the payslip detail screen
@@ -309,14 +325,41 @@ export default function PayAdmin({ employeeId, employeeName, onBack, onPayslipUp
         setLoading(true);
         setError(null);
         try {
-            await axiosInstance.patch(`https://employeemanagement.company/api/admin/salary-slips/${selectedPayslip.id}/`, { status: newStatus });
-            // Update local state for status without re-fetching all
-            setFormData(prev => ({ ...prev, status: newStatus }));
-            setSelectedPayslip(prev => prev ? { ...prev, status: newStatus } : null);
-            // Optionally, update the status in allPayslips array as well if you show it
-            setAllPayslips(prev => prev.map(p => p.id === selectedPayslip.id ? { ...p, status: newStatus } : p));
-            if (onPayslipUpdate) { // Notify parent of the status change
-                onPayslipUpdate();
+            // Ensure we're sending the correct backend status
+            const backendStatus = newStatus.toLowerCase();
+            if (backendStatus !== 'paid' && backendStatus !== 'unpaid') {
+                throw new Error('Invalid status value');
+            }
+
+            const response = await axiosInstance.patch(
+                `https://employeemanagement.company/api/admin/salary-slips/${selectedPayslip.id}/`,
+                { payment_status: backendStatus }
+            );
+
+            // Only update state if the API call was successful
+            if (response && response.data) {
+                // Update formData with the status from the response
+                setFormData(prev => ({
+                    ...prev,
+                    payment_status: response.data.payment_status
+                }));
+
+                // Update selectedPayslip with the response data
+                setSelectedPayslip(prev => prev ? {
+                    ...prev,
+                    payment_status: response.data.payment_status
+                } : null);
+
+                // Update the status in allPayslips array
+                setAllPayslips(prev => prev.map(p => 
+                    p.id === selectedPayslip.id 
+                    ? { ...p, payment_status: response.data.payment_status }
+                    : p
+                ));
+
+                if (onPayslipUpdate) {
+                    onPayslipUpdate();
+                }
             }
 
         } catch (err) {
@@ -324,7 +367,6 @@ export default function PayAdmin({ employeeId, employeeName, onBack, onPayslipUp
             setError("Failed to update status.");
         } finally {
             setLoading(false);
-            setShowStatusModal(false); // Close modal
         }
     };
 
@@ -478,12 +520,10 @@ export default function PayAdmin({ employeeId, employeeName, onBack, onPayslipUp
                                         name="basic_salary"
                                         value={formData.basic_salary}
                                         onChange={handleFormChange}
-                                        disabled={!isEditing}  // Change readOnly to disabled
-                                        className={`w-full pl-12 p-3 border border-gray-300 rounded-lg ${
-                                            isEditing ? 'bg-white' : 'bg-gray-50'
-                                        } focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                            isEditing ? '' : 'cursor-not-allowed'
-                                        }`}
+                                        disabled={true}
+                                        min="1"
+                                        step="1"
+                                        className="w-full pl-12 p-3 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-not-allowed"
                                         required
                                     />
                                     <div className="absolute inset-y-0 right-0 flex items-center pr-3">
@@ -641,7 +681,29 @@ export default function PayAdmin({ employeeId, employeeName, onBack, onPayslipUp
                                         </>
                                     ) : (
                                         <>
-                                            {/* Add download button first */}
+                                            {/* Status toggle button */}
+                                            {selectedPayslip && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleStatusChange(formData.payment_status === 'paid' ? 'Unpaid' : 'Paid')}
+                                                    className={`inline-flex items-center transition-all duration-200
+                                                        md:px-4 md:py-2 md:rounded-md md:text-sm
+                                                        px-2 py-2 rounded-full text-xs
+                                                        border border-transparent font-medium 
+                                                        ${formData.payment_status === 'paid' 
+                                                        ? 'text-green-700 bg-green-100 hover:bg-green-200' 
+                                                        : 'text-red-700 bg-red-100 hover:bg-red-200'
+                                                        } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
+                                                >
+                                                    <svg className="w-4 h-4 md:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    <span className="hidden md:inline">
+                                                        {formData.payment_status === 'paid' ? 'Mark as Unpaid' : 'Mark as Paid'}
+                                                    </span>
+                                                </button>
+                                            )}
+                                            {/* Add download button */}
                                             {selectedPayslip && (
                                                 <button
                                                     type="button"
@@ -734,9 +796,11 @@ export default function PayAdmin({ employeeId, employeeName, onBack, onPayslipUp
                                             </div>
                                             <div className="flex items-center space-x-3">
                                                 <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                                    payslip.status === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                                    String(payslip.payment_status).toLowerCase() === 'paid' 
+                                                    ? 'bg-green-100 text-green-700' 
+                                                    : 'bg-red-100 text-red-700'
                                                 }`}>
-                                                    {payslip.status}
+                                                    {String(payslip.payment_status).toLowerCase() === 'paid' ? 'Paid' : 'Unpaid'}
                                                 </div>
                                                 <button
                                                     onClick={() => handleDownloadPayslip(payslip.id)}
@@ -763,36 +827,7 @@ export default function PayAdmin({ employeeId, employeeName, onBack, onPayslipUp
                 </>
             )}
 
-            {/* Status Modal - remains independent */}
-            {showStatusModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-30">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
-                        <div className="p-4 border-b border-neutral-200 flex justify-between items-center">
-                            <h3 className="text-xl font-bold text-neutral-800">Update Status</h3>
-                            <button onClick={() => setShowStatusModal(false)} className="text-neutral-500 hover:text-neutral-800">
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                            </button>
-                        </div>
-                        <div className="p-4">
-                            <p className="mb-4 text-neutral-700">Current Status: <span className={`font-semibold ${employeeSummary.status === 'Paid' ? 'text-green-600' : 'text-red-600'}`}>{employeeSummary.status}</span></p>
-                            <div className="flex space-x-3">
-                                <button
-                                    onClick={() => handleStatusChange("Paid")}
-                                    className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors duration-200"
-                                >
-                                    Mark as Paid
-                                </button>
-                                <button
-                                    onClick={() => handleStatusChange("Unpaid")}
-                                    className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200"
-                                >
-                                    Mark as Unpaid
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Status modal removed in favor of direct toggle button */}
         </div>
     );
 }

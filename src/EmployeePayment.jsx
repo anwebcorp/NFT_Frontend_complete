@@ -72,7 +72,7 @@ export default function EmployeePayment({ employeeId, employeeName, onBack }) {
             totalDeductions: Number(selectedPayslip.total_deductions || 0),
             totalAllowances: Number(selectedPayslip.total_allowances || 0),
             netSalary: Number(selectedPayslip.net_pay || 0),
-            status: selectedPayslip.status
+            status: selectedPayslip.payment_status
         };
     }, [selectedPayslip, employeeName]);
 
@@ -156,9 +156,9 @@ export default function EmployeePayment({ employeeId, employeeName, onBack }) {
                                             <p className="text-sm text-neutral-500">Net Pay: Rs {formatNumber(Number(payslip.net_pay || 0))}</p>
                                         </div>
                                         <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                            payslip.status === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                            payslip.payment_status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                                         }`}>
-                                            {payslip.status}
+                                            {payslip.payment_status === 'paid' ? 'Paid' : 'Unpaid'}
                                         </div>
                                         <svg className="w-5 h-5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
                                     </div>
@@ -206,9 +206,13 @@ export default function EmployeePayment({ employeeId, employeeName, onBack }) {
                                         <p className="text-sm uppercase opacity-90">Total Net Pay</p>
                                         <p className="text-3xl font-extrabold">Rs {formatNumber(employeeSummary.netSalary)}</p>
                                     </div>
-                                    <p className={`text-md font-semibold mt-4 ${employeeSummary.status === 'Paid' ? 'text-green-600' : 'text-red-600'}`}>
-                                        Status: {employeeSummary.status}
-                                    </p>
+                                    <div className="mt-4">
+                                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
+                                            employeeSummary.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                        }`}>
+                                            {employeeSummary.status === 'paid' ? 'Paid' : 'Unpaid'}
+                                        </span>
+                                    </div>
                                 </div>
 
                                 {/* Basic Salary */}

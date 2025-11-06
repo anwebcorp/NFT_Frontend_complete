@@ -28,7 +28,7 @@ export default function Admin({ user, setUser }) {
 
     const [newEmployeeData, setNewEmployeeData] = useState({
         name: "", cnic: "", phone_number: "", address: "", Job_title: "",
-        image: null, employee_id: "", joining_date: "",
+            image: null, employee_id: "", joining_date: "", basic_salary: 0,
         username: "", email: "", first_name: "", last_name: "", password: "",
     });
     const [showCreateForm, setShowCreateForm] = useState(false);
@@ -127,6 +127,7 @@ export default function Admin({ user, setUser }) {
             joining_date: profile.joining_date || "N/A",
             time_since_joining: profile.time_since_joining || "N/A",
             Job_title: profile.Job_title || "N/A",
+            basic_salary: profile.basic_salary || 0,
             photo: (profile.image && typeof profile.image === 'string' && profile.image.startsWith('/'))
                 ? `https://employeemanagement.company${profile.image}`
                 : DEFAULT_AVATAR_PLACEHOLDER,
@@ -247,6 +248,8 @@ export default function Admin({ user, setUser }) {
     };
 
     const handleManagePaymentClick = useCallback((employee) => {
+        console.log("Managing payment for employee:", employee);
+        console.log("Employee basic salary:", employee.basic_salary);
         setEmployeeForPayment(employee);
         setShowPaymentPage(true);
         setSelectedEmployee(null);
@@ -317,7 +320,10 @@ export default function Admin({ user, setUser }) {
 
     const handleNewEmployeeInputChange = (e) => {
         const { name, value } = e.target;
-        setNewEmployeeData((prevData) => ({ ...prevData, [name]: value }));
+        setNewEmployeeData((prevData) => ({ 
+            ...prevData, 
+            [name]: name === 'basic_salary' ? (value === '' ? '' : Number(value)) : value 
+        }));
     };
 
     const handleNewEmployeeFileChange = (e) => {
@@ -376,7 +382,10 @@ export default function Admin({ user, setUser }) {
 
     const handleEditEmployeeInputChange = (e) => {
         const { name, value } = e.target;
-        setCurrentEmployeeToEdit((prevData) => ({ ...prevData, [name]: value }));
+        setCurrentEmployeeToEdit((prevData) => ({ 
+            ...prevData, 
+            [name]: name === 'basic_salary' ? (value === '' ? '' : Number(value)) : value 
+        }));
     };
 
     const handleEditEmployeeFileChange = (e) => {
@@ -577,6 +586,10 @@ export default function Admin({ user, setUser }) {
                             <div>
                                 <h3 className="text-sm font-semibold text-neutral-500">Job Title</h3>
                                 <p className="text-neutral-900">{employee.Job_title}</p>
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-semibold text-neutral-500">Basic Salary</h3>
+                                <p className="text-neutral-900">Rs. {employee.basic_salary}</p>
                             </div>
                             <div>
                                 <h3 className="text-sm font-semibold text-neutral-500">Email</h3>
@@ -802,7 +815,7 @@ export default function Admin({ user, setUser }) {
                                 setShowMenu(false);
                                 setShowSuppliersPage(true);
                             }}
-                            className="w-full text-left py-2 px-4 rounded-md hover:bg-neutral-100 flex items-center text-lg text-neutral-700"
+                            className="hidden w-full text-left py-2 px-4 rounded-md hover:bg-neutral-100 flex items-center text-lg text-neutral-700"
                         >
                             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9l-4 4m0 0l-4-4m4 4V3m-2 15h6a2 2 0 002-2v-2a2 2 0 00-2-2H9a2 2 0 00-2 2v2a2 2 0 002 2z" />
@@ -952,6 +965,11 @@ export default function Admin({ user, setUser }) {
                             <input type="date" id="joining_date" name="joining_date" value={newEmployeeData.joining_date} onChange={handleNewEmployeeInputChange} required
                                 className="shadow appearance-none border rounded w-full py-2 px-3 text-neutral-700 leading-tight focus:outline-none focus:shadow-outline"/>
                         </div>
+                        <div className="mb-4">
+                            <label htmlFor="basic_salary" className="block text-neutral-700 text-sm font-bold mb-2">Basic Salary:</label>
+                            <input type="number" min="0" step="1" id="basic_salary" name="basic_salary" value={newEmployeeData.basic_salary} onChange={handleNewEmployeeInputChange}
+                                className="shadow appearance-none border rounded w-full py-2 px-3 text-neutral-700 leading-tight focus:outline-none focus:shadow-outline"/>
+                        </div>
                         <div className="mb-6">
                             <label htmlFor="image" className="block text-neutral-700 text-sm font-bold mb-2">Profile Image:</label>
                             <input type="file" id="image" name="image" onChange={handleNewEmployeeFileChange}
@@ -1058,6 +1076,11 @@ export default function Admin({ user, setUser }) {
                                 <input type="date" id="edit_joining_date" name="joining_date" value={currentEmployeeToEdit.joining_date || ''} onChange={handleEditEmployeeInputChange} required
                                     className="shadow appearance-none border rounded w-full py-2 px-3 text-neutral-700 leading-tight focus:outline-none focus:shadow-outline"/>
                             </div>
+                            <div className="mb-4">
+                                <label htmlFor="edit_basic_salary" className="block text-neutral-700 text-sm font-bold mb-2">Basic Salary:</label>
+                                <input type="number" min="0" step="1" id="edit_basic_salary" name="basic_salary" value={currentEmployeeToEdit.basic_salary || ''} onChange={handleEditEmployeeInputChange}
+                                    className="shadow appearance-none border rounded w-full py-2 px-3 text-neutral-700 leading-tight focus:outline-none focus:shadow-outline"/>
+                            </div>
                             <div className="mb-6">
                                 <label htmlFor="edit_image" className="block text-neutral-700 text-sm font-bold mb-2">Profile Image:</label>
                                 <input type="file" id="edit_image" name="image" onChange={handleEditEmployeeFileChange}
@@ -1123,6 +1146,7 @@ export default function Admin({ user, setUser }) {
                 <MemoizedPayAdmin
                     employeeId={employeeForPayment.id}
                     employeeName={employeeForPayment.name}
+                    employeeBasicSalary={employeeForPayment.basic_salary}
                     onBack={handleBackFromPayment}
                 />
             )}
