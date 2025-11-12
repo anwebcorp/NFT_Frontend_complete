@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import axiosInstance from './axiosInstance'; // Import axiosInstance
 
-const API_BASE_URL = "https://employeemanagement.company/api";
+const API_BASE_URL = "http://127.0.0.1:8000/api";
 
 export default function EmployeePayment({ employeeId, employeeName, onBack }) {
     const [allPayslips, setAllPayslips] = useState([]);
@@ -154,7 +154,6 @@ export default function EmployeePayment({ employeeId, employeeName, onBack }) {
                                         <div>
                                             <p className="text-lg font-semibold text-neutral-800">{payslip.month}</p>
                                             <p className="text-sm text-neutral-500">Net Pay: Rs {formatNumber(Number(payslip.net_pay || 0))}</p>
-                                            <p className="text-sm text-neutral-500">Basic Salary: Rs {formatNumber(Number(payslip.basic_salary || 0))}</p>
                                         </div>
                                         <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
                                             payslip.payment_status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'

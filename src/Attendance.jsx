@@ -356,11 +356,55 @@ const Attendance = ({ employeeId, employeeName, onBack }) => {
       {/* Content based on employeeName */}
       {isDashboard ? (
         <div className="flex-1 bg-white rounded-lg shadow flex flex-col max-h-[calc(100vh-180px)]">
-          {/* Toggle button */}
-          <button
-            onClick={() => setIsStatsVisible(!isStatsVisible)}
-            className="absolute right-6 top-24 z-20 bg-white shadow-lg rounded-full p-2 hover:bg-gray-50 transition-all duration-200 transform hover:scale-110"
-            title={isStatsVisible ? "Hide Stats" : "Show Stats"}
+          {/* Download and Toggle buttons */}
+          <div className="absolute right-6 top-24 z-20 flex gap-2">
+            <button
+              onClick={async () => {
+                try {
+                  if (!axiosRef.current) {
+                    const mod = await import("./axiosInstance");
+                    axiosRef.current = mod.default || mod;
+                  }
+                  const axios = axiosRef.current;
+                  const response = await axios.get(`attendance/pdf/`, {
+                    responseType: 'blob',
+                    headers: {
+                      'Accept': 'application/pdf, application/json'
+                    }
+                  });
+                  
+                  // Check if the response is JSON (error message)
+                  if (response.headers['content-type'].includes('application/json')) {
+                    const blob = new Blob([response.data]);
+                    const text = await new Response(blob).text();
+                    const error = JSON.parse(text);
+                    throw new Error(error.error || 'Failed to download employee list');
+                  }
+                  
+                  const url = window.URL.createObjectURL(new Blob([response.data]));
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.setAttribute('download', 'Employee_List.pdf');
+                  document.body.appendChild(link);
+                  link.click();
+                  link.remove();
+                  window.URL.revokeObjectURL(url);
+                } catch (err) {
+                  console.error('Download error:', err);
+                  setError(err.response?.data?.error || "Failed to download attendance data");
+                }
+              }}
+              className="bg-white shadow-lg rounded-full p-2 hover:bg-gray-50 transition-all duration-200 transform hover:scale-110"
+              title="Download Attendance"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setIsStatsVisible(!isStatsVisible)}
+              className="bg-white shadow-lg rounded-full p-2 hover:bg-gray-50 transition-all duration-200 transform hover:scale-110"
+              title={isStatsVisible ? "Hide Stats" : "Show Stats"}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -379,6 +423,7 @@ const Attendance = ({ employeeId, employeeName, onBack }) => {
               />
             </svg>
           </button>
+          </div>
 
           {/* Stats grid with transition */}
           <div

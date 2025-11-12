@@ -40,7 +40,7 @@ export default function PayAdmin({ employeeId, employeeName, employeeBasicSalary
         setLoading(true);
         setError(null);
         try {
-            const response = await axiosInstance.get(`https://employeemanagement.company/api/admin/salary-slips/?profile=${employeeId}`);
+            const response = await axiosInstance.get(`http://127.0.0.1:8000/api/admin/salary-slips/?profile=${employeeId}`);
             // Assuming response.data is an array of payslip objects
             // Sort payslips from most recent to oldest
             const sortedPayslips = response.data.sort((a, b) => {
@@ -242,10 +242,10 @@ export default function PayAdmin({ employeeId, employeeName, employeeBasicSalary
         try {
             if (selectedPayslip && selectedPayslip.id) {
                 // Update existing payslip
-                await axiosInstance.put(`https://employeemanagement.company/api/admin/salary-slips/${selectedPayslip.id}/`, formData);
+                await axiosInstance.put(`http://127.0.0.1:8000/api/admin/salary-slips/${selectedPayslip.id}/`, formData);
             } else {
                 // Create new payslip
-                await axiosInstance.post('https://employeemanagement.company/api/admin/salary-slips/', {
+                await axiosInstance.post('http://127.0.0.1:8000/api/admin/salary-slips/', {
                     ...formData,
                     profile: employeeId // Ensure profile ID is sent for new payslip
                 });
@@ -304,7 +304,7 @@ export default function PayAdmin({ employeeId, employeeName, employeeBasicSalary
         setLoading(true);
         setError(null);
         try {
-            await axiosInstance.delete(`https://employeemanagement.company/api/admin/salary-slips/${payslipId}/`);
+            await axiosInstance.delete(`http://127.0.0.1:8000/api/admin/salary-slips/${payslipId}/`);
             await fetchAllPayslips(); // Re-fetch to update the list
             if (onPayslipUpdate) { // Notify parent of the deletion
                 onPayslipUpdate();
@@ -332,7 +332,7 @@ export default function PayAdmin({ employeeId, employeeName, employeeBasicSalary
             }
 
             const response = await axiosInstance.patch(
-                `https://employeemanagement.company/api/admin/salary-slips/${selectedPayslip.id}/`,
+                `http://127.0.0.1:8000/api/admin/salary-slips/${selectedPayslip.id}/`,
                 { payment_status: backendStatus }
             );
 
