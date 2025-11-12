@@ -98,7 +98,7 @@ export default function Employee({ user, setUser }) {
 
   // Determine the image URL. Prioritize full URL if available, otherwise construct from relative path.
   const employeeImageUrl = user?.image
-    ? (user.image.startsWith('http') ? user.image : `http://127.0.0.1:8000${user.image}`)
+    ? (user.image.startsWith('http') ? user.image : `https://employeemanagement.company${user.image}`)
     : "https://placehold.co/150x150/CCCCCC/FFFFFF?text=NO+IMAGE"; // Default placeholder if no image
 
   // Removed the useEffect that was making the redundant API call

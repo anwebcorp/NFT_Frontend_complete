@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const axiosInstance = axios.create({
-  baseURL: 'http://127.0.0.1:8000/api/', // Updated API base URL
+  baseURL: 'https://employeemanagement.company/api/', // Updated API base URL
 });
 
 // Request interceptor to attach access token to headers
@@ -38,7 +38,7 @@ axiosInstance.interceptors.response.use(
       }
 
       try {
-        const response = await axios.post('http://127.0.0.1:8000/api/token/refresh/', { refresh: refreshToken });
+        const response = await axios.post('https://employeemanagement.company/api/token/refresh/', { refresh: refreshToken });
         const { access } = response.data;
         if (access) {
           // CORRECTED: Use 'access_token' to store the new token

@@ -20,7 +20,7 @@ const SupplierDetails = () => {
 
     const constructImageUrl = (path) => {
         if (path && typeof path === 'string' && path.startsWith('/')) {
-            return `http://127.0.0.1:8000${path}`;
+            return `https://employeemanagement.company${path}`;
         }
         return path;
     };
