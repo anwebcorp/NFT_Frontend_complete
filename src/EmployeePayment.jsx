@@ -3,7 +3,7 @@ import axiosInstance from './axiosInstance'; // Import axiosInstance
 
 const API_BASE_URL = "https://employeemanagement.company/api";
 
-export default function EmployeePayment({ employeeId, employeeName, onBack }) {
+export default function EmployeePayment({ employeeName, onBack }) {
     const [allPayslips, setAllPayslips] = useState([]);
     const [selectedPayslip, setSelectedPayslip] = useState(null); // Holds the payslip object for detail view
     const [showDetail, setShowDetail] = useState(false); // Controls visibility of the detail view
@@ -11,8 +11,9 @@ export default function EmployeePayment({ employeeId, employeeName, onBack }) {
     const [error, setError] = useState(null);
 
     // Helper to parse month strings for consistent sorting
-    const parseMonth = (monthStr) => {
-        if (!monthStr) return new Date(0);
+    const parseMonth = (monthsArray) => {
+        if (!monthsArray || monthsArray.length === 0) return new Date(0);
+        const monthStr = monthsArray[0];
         const [monthName, year] = monthStr.split(' ');
         const monthIndex = new Date(Date.parse(monthName + " 1, " + year)).getMonth();
         return new Date(year, monthIndex);
@@ -25,8 +26,8 @@ export default function EmployeePayment({ employeeId, employeeName, onBack }) {
             // Using the correct endpoint for the logged-in user's payslips
             const response = await axiosInstance.get(`${API_BASE_URL}/my-salary-slips/`);
             const sortedPayslips = response.data.sort((a, b) => {
-                const dateA = parseMonth(a.month);
-                const dateB = parseMonth(b.month);
+                const dateA = parseMonth(a.months);
+                const dateB = parseMonth(b.months);
                 return dateB - dateA; // Descending order (most recent first)
             });
             setAllPayslips(sortedPayslips);
@@ -44,15 +45,20 @@ export default function EmployeePayment({ employeeId, employeeName, onBack }) {
     };
 
     useEffect(() => {
-        fetchAllPayslips();
-    }, [employeeId, employeeName]); // employeeId/Name might be used for future local filtering or display logic
+        const initializePayslips = async () => {
+            await fetchAllPayslips();
+        };
+        initializePayslips();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Memoized calculation for the currently selected payslip's summary
     const employeeSummary = useMemo(() => {
         if (!selectedPayslip) {
             return {
                 name: employeeName,
-                month: "N/A",
+                months: [],
+                monthsDisplay: "N/A",
                 basicSalary: 0,
                 deductions: [],
                 allowances: [],
@@ -65,7 +71,8 @@ export default function EmployeePayment({ employeeId, employeeName, onBack }) {
 
         return {
             name: employeeName,
-            month: selectedPayslip.month,
+            months: selectedPayslip.months || [],
+            monthsDisplay: (selectedPayslip.months && selectedPayslip.months.length > 0) ? selectedPayslip.months.join(", ") : "N/A",
             basicSalary: Number(selectedPayslip.basic_salary || 0),
             deductions: selectedPayslip.deductions || [],
             allowances: selectedPayslip.allowances || [],
@@ -152,7 +159,7 @@ export default function EmployeePayment({ employeeId, employeeName, onBack }) {
                                 >
                                     <div className="flex justify-between items-center">
                                         <div>
-                                            <p className="text-lg font-semibold text-neutral-800">{payslip.month}</p>
+                                            <p className="text-lg font-semibold text-neutral-800">{(payslip.months || []).join(", ")}</p>
                                             <p className="text-sm text-neutral-500">Net Pay: Rs {formatNumber(Number(payslip.net_pay || 0))}</p>
                                         </div>
                                         <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
@@ -199,7 +206,7 @@ export default function EmployeePayment({ employeeId, employeeName, onBack }) {
                                 <div className="bg-white rounded-xl shadow-md p-6 text-center">
                                     <h2 className="text-2xl font-bold text-neutral-800 mb-1">{employeeSummary.name}</h2>
                                     <p className="text-lg text-neutral-600 mb-4">
-                                        {employeeSummary.month ? `Payslip for ${employeeSummary.month}` : "N/A"}
+                                        {employeeSummary.monthsDisplay ? `Payslip for ${employeeSummary.monthsDisplay}` : "N/A"}
                                     </p>
                                     {/* Net Salary - Prominent Display */}
                                     <div className="mt-4 py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg shadow-md">

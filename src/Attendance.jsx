@@ -267,55 +267,58 @@ const Attendance = ({ employeeId, employeeName, onBack }) => {
   // Create a memoized employee row component
   const EmployeeRow = memo(({ employee, attendanceRecord, selectedDate }) => {
     return (
-      <tr className="hover:bg-gray-50">
-        <td className="p-4">
-          <div className="flex items-center">
-            <img src={employee.photo} alt="" className="w-8 h-8 rounded-full mr-3" />
-            <div>
-              <div className="font-medium text-gray-900">{employee.name}</div>
-              <div className="text-sm text-gray-500">{employee.job_title}</div>
+      <tr className="hover:bg-gray-50 border-b">
+        <td className="p-2 md:p-4">
+          <div className="flex items-center gap-2">
+            <img src={employee.photo} alt="" className="w-6 md:w-8 h-6 md:h-8 rounded-full flex-shrink-0" />
+            <div className="min-w-0">
+              <div className="font-medium text-gray-900 text-xs md:text-sm truncate">{employee.name}</div>
+              <div className="text-xs text-gray-500 truncate">{employee.job_title}</div>
             </div>
           </div>
         </td>
         
-        <td className="p-4 text-center text-sm text-gray-500">
+        <td className="p-2 md:p-4 text-center text-xs md:text-sm text-gray-500">
           {attendanceRecord?.date ? formatDate(attendanceRecord.date) : formatDate(selectedDate)}
         </td>
         
-        <td className="p-4 text-center text-sm text-gray-500">
+        <td className="p-2 md:p-4 text-center text-xs md:text-sm text-gray-500">
           {attendanceRecord?.day || new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long' })}
         </td>
         
-        <td className="p-4 text-center">
+        <td className="p-2 md:p-4 text-center text-xs md:text-sm">
           {attendanceRecord?.time ? (
             <div className="flex flex-col items-center">
               <span className="font-medium">{formatTime(attendanceRecord.time).time24}</span>
-              <span className="text-xs text-gray-500">{formatTime(attendanceRecord.time).time12}</span>
+              <span className="text-xs text-gray-500 hidden md:inline">{formatTime(attendanceRecord.time).time12}</span>
             </div>
           ) : '-'}
         </td>
         
-        <td className="p-4 text-center">
+        <td className="p-2 md:p-4 text-center">
           {attendanceRecord?.location ? (
             <div className="flex flex-col items-center">
               <button 
                 onClick={() => window.open(`https://www.google.com/maps?q=${attendanceRecord.location}`, '_blank')}
-                className="text-blue-600 hover:text-blue-800 text-sm"
+                className="text-blue-600 hover:text-blue-800 text-xs md:text-sm underline"
               >
-                View Location
+                View
               </button>
             </div>
           ) : '-'}
         </td>
         
-        <td className="p-4 text-center">
-          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+        <td className="p-2 md:p-4 text-center">
+          <span className={`px-2 py-1 text-xs font-medium rounded-full inline-block whitespace-nowrap ${
             attendanceRecord?.status === 'Present' ? 'bg-green-100 text-green-800' :
             attendanceRecord?.status === 'Absent' ? 'bg-red-100 text-red-800' :
             attendanceRecord?.status === 'Leave' ? 'bg-yellow-100 text-yellow-800' :
             'bg-gray-100 text-gray-800'
           }`}>
-            {capitalize(attendanceRecord?.status || 'Not Marked')}
+            {attendanceRecord?.status === 'Present' ? 'P' :
+             attendanceRecord?.status === 'Absent' ? 'A' :
+             attendanceRecord?.status === 'Leave' ? 'L' :
+             'N'}
           </span>
         </td>
       </tr>
@@ -326,38 +329,33 @@ const Attendance = ({ employeeId, employeeName, onBack }) => {
     // use CSS variable --vh to set the visible viewport height on mobile (avoid h-screen)
     <div className="p-4 flex flex-col" style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
       {/* Logo and Title */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 gap-4">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
           <button 
             onClick={onBack}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
             title="Back to Admin Panel"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
           </button>
-          <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
+          <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold">Attendance Management</h1>
-            <p className="text-gray-500 text-sm">Track and manage employee attendance records</p>
+          <div className="min-w-0">
+            <h1 className="text-xl md:text-2xl font-bold truncate">Attendance Management</h1>
+            <p className="text-gray-500 text-xs md:text-sm truncate">Track and manage employee attendance records</p>
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-gray-600">Current Date:</div>
-          <div className="font-medium">{new Date().toLocaleDateString()}</div>
-        </div>
-      </div>
-
-      {/* Content based on employeeName */}
-      {isDashboard ? (
-        <div className="flex-1 bg-white rounded-lg shadow flex flex-col max-h-[calc(100vh-180px)]">
-          {/* Download and Toggle buttons */}
-          <div className="absolute right-6 top-24 z-20 flex gap-2">
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="text-right">
+            <div className="text-gray-600 text-xs md:text-sm">Current Date:</div>
+            <div className="font-medium text-sm md:text-base">{new Date().toLocaleDateString()}</div>
+          </div>
+          {isDashboard && (
             <button
               onClick={async () => {
                 try {
@@ -394,96 +392,103 @@ const Attendance = ({ employeeId, employeeName, onBack }) => {
                   setError(err.response?.data?.error || "Failed to download attendance data");
                 }
               }}
-              className="bg-white shadow-lg rounded-full p-2 hover:bg-gray-50 transition-all duration-200 transform hover:scale-110"
+              className="bg-white shadow-lg rounded-full p-2 hover:bg-gray-50 transition-all duration-200 transform hover:scale-110 flex-shrink-0"
               title="Download Attendance"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
             </button>
+          )}
+          {isDashboard && (
             <button
               onClick={() => setIsStatsVisible(!isStatsVisible)}
-              className="bg-white shadow-lg rounded-full p-2 hover:bg-gray-50 transition-all duration-200 transform hover:scale-110"
+              className="bg-white shadow-lg rounded-full p-2 hover:bg-gray-50 transition-all duration-200 transform hover:scale-110 flex-shrink-0"
               title={isStatsVisible ? "Hide Stats" : "Show Stats"}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className={`h-5 w-5 text-gray-600 transition-transform duration-200 ${
-                isStatsVisible ? 'rotate-180' : ''
-              }`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </button>
-          </div>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className={`h-5 w-5 text-gray-600 transition-transform duration-200 ${
+                  isStatsVisible ? 'rotate-180' : ''
+                }`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
 
+      {/* Content based on employeeName */}
+      {isDashboard ? (
+        <div className="flex-1 bg-white rounded-lg shadow flex flex-col max-h-[calc(100vh-200px)] overflow-hidden">
           {/* Stats grid with transition */}
           <div
-            className={`grid grid-cols-1 md:grid-cols-4 gap-4 p-4 pb-2 bg-white sticky top-0 z-10 transition-all duration-300 ease-in-out ${
+            className={`grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 p-3 md:p-4 pb-2 bg-white sticky top-0 z-10 transition-all duration-300 ease-in-out ${
               isStatsVisible ? 'opacity-100 max-h-[500px]' : 'opacity-0 max-h-0 overflow-hidden'
             }`}
           >
             {/* Stats grid content */}
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="flex items-center">
-                <div className="flex-1">
-                  <h2 className="text-blue-600 text-lg font-semibold mb-2">Total</h2>
-                  <p className="text-3xl font-bold text-blue-700">{calculateDashboardStats(attendanceStatusToday).total}</p>
+            <div className="bg-blue-50 p-3 md:p-4 rounded-lg">
+              <div className="flex flex-col md:flex-row md:items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-blue-600 text-xs md:text-lg font-semibold mb-1 md:mb-2 truncate">Total</h2>
+                  <p className="text-2xl md:text-3xl font-bold text-blue-700">{calculateDashboardStats(attendanceStatusToday).total}</p>
                 </div>
-                <div className="p-3 bg-blue-100 rounded-full">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="p-2 md:p-3 bg-blue-100 rounded-full hidden md:flex flex-shrink-0">
+                  <svg className="w-5 md:w-6 h-5 md:h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
                 </div>
               </div>
             </div>
 
-            <div className="bg-green-50 p-4 rounded-lg">
-              <div className="flex items-center">
-                <div className="flex-1">
-                  <h2 className="text-green-600 text-lg font-semibold mb-2">Present</h2>
-                  <p className="text-3xl font-bold text-green-700">{calculateDashboardStats(attendanceStatusToday).present}</p>
+            <div className="bg-green-50 p-3 md:p-4 rounded-lg">
+              <div className="flex flex-col md:flex-row md:items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-green-600 text-xs md:text-lg font-semibold mb-1 md:mb-2 truncate">P</h2>
+                  <p className="text-2xl md:text-3xl font-bold text-green-700">{calculateDashboardStats(attendanceStatusToday).present}</p>
                 </div>
-                <div className="p-3 bg-green-100 rounded-full">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="p-2 md:p-3 bg-green-100 rounded-full hidden md:flex flex-shrink-0">
+                  <svg className="w-5 md:w-6 h-5 md:h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
               </div>
             </div>
 
-            <div className="bg-red-50 p-4 rounded-lg">
-              <div className="flex items-center">
-                <div className="flex-1">
-                  <h2 className="text-red-600 text-lg font-semibold mb-2">Absent</h2>
-                  <p className="text-3xl font-bold text-red-700">{calculateDashboardStats(attendanceStatusToday).absent}</p>
+            <div className="bg-red-50 p-3 md:p-4 rounded-lg">
+              <div className="flex flex-col md:flex-row md:items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-red-600 text-xs md:text-lg font-semibold mb-1 md:mb-2 truncate">A</h2>
+                  <p className="text-2xl md:text-3xl font-bold text-red-700">{calculateDashboardStats(attendanceStatusToday).absent}</p>
                 </div>
-                <div className="p-3 bg-red-100 rounded-full">
-                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="p-2 md:p-3 bg-red-100 rounded-full hidden md:flex flex-shrink-0">
+                  <svg className="w-5 md:w-6 h-5 md:h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </div>
               </div>
             </div>
 
-            <div className="bg-yellow-50 p-4 rounded-lg">
-              <div className="flex items-center">
-                <div className="flex-1">
-                  <h2 className="text-yellow-600 text-lg font-semibold mb-2">On Leave</h2>
-                  <p className="text-3xl font-bold text-yellow-700">
+            <div className="bg-yellow-50 p-3 md:p-4 rounded-lg">
+              <div className="flex flex-col md:flex-row md:items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-yellow-600 text-xs md:text-lg font-semibold mb-1 md:mb-2 truncate">L</h2>
+                  <p className="text-2xl md:text-3xl font-bold text-yellow-700">
                     {Object.values(attendanceStatusToday).filter(record => record?.status === 'Leave').length}
                   </p>
                 </div>
-                <div className="p-3 bg-yellow-100 rounded-full">
-                  <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="p-2 md:p-3 bg-yellow-100 rounded-full hidden md:flex flex-shrink-0">
+                  <svg className="w-5 md:w-6 h-5 md:h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
@@ -493,30 +498,20 @@ const Attendance = ({ employeeId, employeeName, onBack }) => {
 
           {/* Table container with dynamic height */}
           <div 
-            className="flex-1"
-            style={{
-              position: 'relative',
-              height: '100%',
-              overflowY: 'auto',
-              overflowX: 'hidden'
-            }}
+            className="flex-1 overflow-hidden flex flex-col"
           >
             <div 
-              style={{
-                overflowX: 'auto',
-                minWidth: '100%',
-                width: '100%'
-              }}
+              className="overflow-auto flex-1"
             >
-              <table className="w-full table-auto" style={{ minWidth: '800px' }}>
+              <table className="w-full table-auto min-w-max">
                 <thead className="bg-gray-50 sticky top-0 z-10">
                   <tr>
-                    <th className="p-4 text-left text-xs font-medium text-gray-500 uppercase">Employee Name</th>
-                    <th className="p-4 text-center text-xs font-medium text-gray-500 uppercase">Date</th>
-                    <th className="p-4 text-center text-xs font-medium text-gray-500 uppercase">Day</th>
-                    <th className="p-4 text-center text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Time Marked</th>
-                    <th className="p-4 text-center text-xs font-medium text-gray-500 uppercase">Location</th>
-                    <th className="p-4 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th className="p-2 md:p-4 text-left text-xs font-medium text-gray-500 uppercase">Employee Name</th>
+                    <th className="p-2 md:p-4 text-center text-xs font-medium text-gray-500 uppercase">Date</th>
+                    <th className="p-2 md:p-4 text-center text-xs font-medium text-gray-500 uppercase">Day</th>
+                    <th className="p-2 md:p-4 text-center text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Time Marked</th>
+                    <th className="p-2 md:p-4 text-center text-xs font-medium text-gray-500 uppercase">Location</th>
+                    <th className="p-2 md:p-4 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">

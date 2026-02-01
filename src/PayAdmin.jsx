@@ -13,7 +13,8 @@ export default function PayAdmin({ employeeId, employeeName, employeeBasicSalary
     // Initial form state (will be populated from selectedPayslip or for a new month)
     const [formData, setFormData] = useState({
         profile: employeeId,
-        month: "",
+        months: [],  // Changed from 'month' to 'months' (backend expects array)
+        total_months: 1,  // Added: required by backend for net_pay calculation
         basic_salary: 0,  // Changed to match backend default value
         deductions: [],
         allowances: [],
@@ -21,8 +22,10 @@ export default function PayAdmin({ employeeId, employeeName, employeeBasicSalary
     });
 
     // Helper to parse month strings for consistent sorting
-    const parseMonth = (monthStr) => {
-        if (!monthStr) return new Date(0); // Return a very early date for invalid/empty
+    const parseMonth = (monthsArray) => {
+        if (!monthsArray || monthsArray.length === 0) return new Date(0); // Return a very early date for invalid/empty
+        // Use the first month in the array for sorting
+        const monthStr = monthsArray[0];
         const [monthName, year] = monthStr.split(' ');
         // This relies on JS Date parsing, ensure monthName is recognized
         const monthIndex = new Date(Date.parse(monthName + " 1, " + year)).getMonth();
@@ -44,8 +47,8 @@ export default function PayAdmin({ employeeId, employeeName, employeeBasicSalary
             // Assuming response.data is an array of payslip objects
             // Sort payslips from most recent to oldest
             const sortedPayslips = response.data.sort((a, b) => {
-                const dateA = parseMonth(a.month);
-                const dateB = parseMonth(b.month);
+                const dateA = parseMonth(a.months);
+                const dateB = parseMonth(b.months);
                 return dateB - dateA; // Descending order
             });
             setAllPayslips(sortedPayslips);
@@ -55,7 +58,8 @@ export default function PayAdmin({ employeeId, employeeName, employeeBasicSalary
                 setSelectedPayslip(latestPayslip);
                 setFormData({
                     profile: employeeId,
-                    month: latestPayslip.month,
+                    months: latestPayslip.months || [],  // Use 'months' array from backend
+                    total_months: latestPayslip.total_months || 1,  // Get from backend
                     basic_salary: Number(employeeBasicSalary) || Number(latestPayslip.basic_salary || 0),
                     deductions: latestPayslip.deductions || [],
                     allowances: latestPayslip.allowances || [],
@@ -65,7 +69,8 @@ export default function PayAdmin({ employeeId, employeeName, employeeBasicSalary
                 setSelectedPayslip(null);
                 setFormData(prev => ({ // Reset formData for a new, empty payslip
                     ...prev,
-                    month: "",
+                    months: [],  // Use empty array instead of empty string
+                    total_months: 1,  // Reset to 1 for new payslip
                     basic_salary: employeeBasicSalary || 0,
                     deductions: [],
                     allowances: [],
@@ -102,11 +107,12 @@ export default function PayAdmin({ employeeId, employeeName, employeeBasicSalary
         
         setFormData({
             profile: employeeId, // Ensure profile is updated for the new employee
-            month: "",
+            months: [],  // Initialize as empty array
+            total_months: 1,  // Initialize total_months
             basic_salary: employeeBasicSalary || 0, // Use the employee's current basic salary from props
             deductions: [],
             allowances: [],
-            status: "Unpaid"
+            payment_status: "unpaid"  // Lowercase to match backend
         });
         fetchAllPayslips();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -117,18 +123,20 @@ export default function PayAdmin({ employeeId, employeeName, employeeBasicSalary
         const basicSalary = Number(formData.basic_salary) || 0;
         const totalDeductions = formData.deductions.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
         const totalAllowances = formData.allowances.reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
-        const netSalary = basicSalary - totalDeductions + totalAllowances;
+        // Net salary calculation matches backend: net_pay = basic_salary * total_months - deductions + allowances
+        const netSalary = (basicSalary * (formData.total_months || 1)) - totalDeductions + totalAllowances;
 
         return {
             name: employeeName,
-            month: formData.month,
+            months: formData.months,  // Use 'months' array
+            monthsDisplay: (formData.months && formData.months.length > 0) ? (formData.months || []).join(", ") : "No months assigned",  // For display purposes
             basicSalary: basicSalary,
             deductions: formData.deductions,
             allowances: formData.allowances,
             totalDeductions: totalDeductions,
             totalAllowances: totalAllowances,
             netSalary: netSalary,
-            status: formData.status
+            payment_status: formData.payment_status  // Use correct field name
         };
     }, [formData, employeeName]);
 
@@ -160,6 +168,13 @@ export default function PayAdmin({ employeeId, employeeName, employeeBasicSalary
         }));
     };
 
+    const addMonth = () => {
+        setFormData(prev => ({
+            ...prev,
+            months: [...prev.months, ""]  // Add empty month string
+        }));
+    };
+
     const handleDeductionChange = (index, field, value) => {
         const newDeductions = [...formData.deductions];
         newDeductions[index] = {
@@ -176,6 +191,38 @@ export default function PayAdmin({ employeeId, employeeName, employeeBasicSalary
             [field]: field === 'amount' ? (value === '' ? 0 : parseFloat(value)) : value
         };
         setFormData(prev => ({ ...prev, allowances: newAllowances }));
+    };
+
+    const handleMonthChange = (index, value) => {
+        const newMonths = [...formData.months];
+        newMonths[index] = value;
+        setFormData(prev => ({
+            ...prev,
+            months: newMonths,
+            total_months: newMonths.filter(m => m.trim()).length || 1  // Count non-empty months
+        }));
+    };
+
+    const removeMonth = (index) => {
+        const newMonths = formData.months.filter((_, i) => i !== index);
+        setFormData(prev => ({
+            ...prev,
+            months: newMonths,
+            total_months: newMonths.filter(m => m.trim()).length || 1
+        }));
+    };
+
+    // Validate month format: "Month Year" e.g., "January 2024"
+    const validateMonthFormat = (monthStr) => {
+        if (!monthStr.trim()) return true; // Empty is okay, will be filtered out
+        const monthNames = [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        ];
+        const parts = monthStr.trim().split(' ');
+        if (parts.length !== 2) return false;
+        const [month, year] = parts;
+        return monthNames.includes(month) && /^\d{4}$/.test(year);
     };
 
     const handleEditClick = (e) => {
@@ -202,20 +249,22 @@ export default function PayAdmin({ employeeId, employeeName, employeeBasicSalary
         if (selectedPayslip) {
             setFormData({
                 profile: employeeId,
-                month: selectedPayslip.month,
+                months: selectedPayslip.months || [],  // Use 'months' array
+                total_months: selectedPayslip.total_months || 1,  // Include total_months
                 basic_salary: Number(selectedPayslip.basic_salary || 0), // CONVERT TO NUMBER
                 deductions: selectedPayslip.deductions || [], // Ensure deductions is an array
                 allowances: selectedPayslip.allowances || [], // Ensure allowances is an array
-                status: selectedPayslip.status
+                payment_status: selectedPayslip.payment_status || 'unpaid'  // Use correct field name
             });
         } else {
             setFormData(prev => ({ // Reset for a new, empty payslip
                 ...prev,
-                month: "",
-                basic_salary: '',
+                months: [],  // Empty array
+                total_months: 1,  // Reset to 1
+                basic_salary: employeeBasicSalary || 0,  // Use employeeBasicSalary
                 deductions: [],
                 allowances: [],
-                status: "Unpaid"
+                payment_status: "unpaid"  // Lowercase
             }));
         }
     };
@@ -226,8 +275,22 @@ export default function PayAdmin({ employeeId, employeeName, employeeBasicSalary
         setError(null);
 
         // Basic validation
-        if (!formData.month) {
-            setError("Month is required.");
+        if (!formData.months || formData.months.length === 0) {
+            setError("At least one month is required.");
+            setLoading(false);
+            return;
+        }
+        // Validate all months have correct format
+        const invalidMonths = formData.months.filter(m => !validateMonthFormat(m));
+        if (invalidMonths.length > 0) {
+            setError("All months must be in 'Month Year' format (e.g., January 2024, February 2024)");
+            setLoading(false);
+            return;
+        }
+        // Ensure total_months is at least 1
+        const totalMonths = Math.max(formData.total_months || formData.months.length, 1);
+        if (totalMonths === 0) {
+            setError("Total months must be at least 1.");
             setLoading(false);
             return;
         }
@@ -241,13 +304,18 @@ export default function PayAdmin({ employeeId, employeeName, employeeBasicSalary
 
         try {
             if (selectedPayslip && selectedPayslip.id) {
-                // Update existing payslip
-                await axiosInstance.put(`https://employeemanagement.company/api/admin/salary-slips/${selectedPayslip.id}/`, formData);
+                // Update existing payslip with calculated total_months
+                const updateData = {
+                    ...formData,
+                    total_months: totalMonths  // Use calculated totalMonths
+                };
+                await axiosInstance.put(`https://employeemanagement.company/api/admin/salary-slips/${selectedPayslip.id}/`, updateData);
             } else {
-                // Create new payslip
+                // Create new payslip with calculated total_months
                 await axiosInstance.post('https://employeemanagement.company/api/admin/salary-slips/', {
                     ...formData,
-                    profile: employeeId // Ensure profile ID is sent for new payslip
+                    profile: employeeId, // Ensure profile ID is sent for new payslip
+                    total_months: totalMonths  // Use calculated totalMonths
                 });
             }
             setIsEditing(false);
@@ -273,7 +341,8 @@ export default function PayAdmin({ employeeId, employeeName, employeeBasicSalary
         setSelectedPayslip(payslip);
         setFormData({
             profile: employeeId,
-            month: payslip.month,
+            months: payslip.months || [],  // Use 'months' array
+            total_months: payslip.total_months || 1,  // Include total_months
             basic_salary: Number(payslip.basic_salary || 0),
             deductions: payslip.deductions || [],
             allowances: payslip.allowances || [],
@@ -287,7 +356,8 @@ export default function PayAdmin({ employeeId, employeeName, employeeBasicSalary
         setSelectedPayslip(null); // Clear selected payslip
         setFormData({ // Reset form for new entry
             profile: employeeId,
-            month: "",
+            months: [],  // Empty array for new payslip
+            total_months: 1,  // Default to 1
             basic_salary: employeeBasicSalary || 0,
             deductions: [],
             allowances: [],
@@ -381,7 +451,7 @@ export default function PayAdmin({ employeeId, employeeName, employeeBasicSalary
     // Update the handleDownloadPayslip function to properly handle binary data
     const handleDownloadPayslip = async (payslipId) => {
         try {
-            const response = await axiosInstance.get(`salary-slip/${payslipId}/download/`, {
+            const response = await axiosInstance.get(`https://employeemanagement.company/api/salary-slip/${payslipId}/download/`, {
                 responseType: 'blob' // Important: this tells axios to handle the response as binary data
             });
             
@@ -476,30 +546,60 @@ export default function PayAdmin({ employeeId, employeeName, employeeBasicSalary
                                     </div>
 
                                     <div>
-                                        <label htmlFor="month" className="block text-sm font-medium text-blue-600 mb-2">
-                                            Month
-                                        </label>
-                                        <div className="relative">
-                                            <input
-                                                type="text"
-                                                id="month"
-                                                name="month"
-                                                value={formData.month}
-                                                onChange={handleFormChange}
-                                                disabled={!isEditing}
-                                                placeholder={isEditing ? "e.g., January 2024" : ""}
-                                                className={`w-full p-3 border border-gray-300 rounded-lg ${
-                                                    isEditing ? 'bg-white' : 'bg-gray-50'
-                                                } focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                                    !isEditing ? 'cursor-not-allowed' : ''
-                                                }`}
-                                                required
-                                            />
-                                            <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                                                <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                </svg>
-                                            </div>
+                                        <div className="flex justify-between items-center mb-2">
+                                            <label className="block text-sm font-medium text-blue-600">
+                                                Months
+                                            </label>
+                                            {isEditing && (
+                                                <button type="button" onClick={addMonth} className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                                    + Add Month
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="space-y-2">
+                                            {formData.months.map((month, index) => (
+                                                <div key={index}>
+                                                    <div className="flex gap-2 items-center">
+                                                        <input
+                                                            type="text"
+                                                            value={month}
+                                                            onChange={(e) => handleMonthChange(index, e.target.value)}
+                                                            disabled={!isEditing}
+                                                            placeholder={isEditing ? "e.g., January 2024" : ""}
+                                                            className={`flex-1 p-2 border rounded-lg text-sm ${
+                                                                !validateMonthFormat(month) && month.trim() ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                                                            } ${
+                                                                isEditing ? 'bg-white' : 'bg-gray-50'
+                                                            } focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                                                !isEditing ? 'cursor-not-allowed' : ''
+                                                            }`}
+                                                        />
+                                                        {isEditing && formData.months.length > 1 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removeMonth(index)}
+                                                                className="text-red-600 hover:text-red-800 p-2"
+                                                                title="Remove month"
+                                                            >
+                                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                </svg>
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                    {!validateMonthFormat(month) && month.trim() && (
+                                                        <p className="text-xs text-red-600 mt-1">Invalid format. Use "Month Year" (e.g., January 2024)</p>
+                                                    )}
+                                                </div>
+                                            ))}
+                                            {formData.months.length === 0 && (
+                                                <p className="text-sm text-gray-500 italic">No months added. Click "+ Add Month" to add one.</p>
+                                            )}
+                                            {formData.months.length > 0 && (
+                                                <p className="text-xs text-gray-600 mt-2">
+                                                    Total Months: <span className="font-semibold">{formData.total_months}</span>
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -628,6 +728,20 @@ export default function PayAdmin({ employeeId, employeeName, employeeBasicSalary
                                             <span className="text-lg">Rs. {formatNumber(employeeSummary.basicSalary)}</span>
                                         </div>
 
+                                        {/* Total Months */}
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-lg text-gray-700">× No. of Months:</span>
+                                            <span className="text-lg font-semibold">{formData.total_months || 1}</span>
+                                        </div>
+
+                                        {/* Gross Salary */}
+                                        <div className="flex justify-between items-center bg-blue-50 px-3 py-2 rounded-lg">
+                                            <span className="text-lg font-semibold text-blue-700">Gross Salary:</span>
+                                            <span className="text-lg font-bold text-blue-700">
+                                                Rs. {formatNumber(employeeSummary.basicSalary * (formData.total_months || 1))}
+                                            </span>
+                                        </div>
+
                                         {/* Total Allowances */}
                                         <div className="flex justify-between items-center">
                                             <span className="text-lg text-green-600">Total Allowances:</span>
@@ -685,7 +799,7 @@ export default function PayAdmin({ employeeId, employeeName, employeeBasicSalary
                                             {selectedPayslip && (
                                                 <button
                                                     type="button"
-                                                    onClick={() => handleStatusChange(formData.payment_status === 'paid' ? 'Unpaid' : 'Paid')}
+                                                    onClick={() => handleStatusChange(formData.payment_status === 'paid' ? 'unpaid' : 'paid')}  // Use lowercase
                                                     className={`inline-flex items-center transition-all duration-200
                                                         md:px-4 md:py-2 md:rounded-md md:text-sm
                                                         px-2 py-2 rounded-full text-xs
@@ -699,7 +813,7 @@ export default function PayAdmin({ employeeId, employeeName, employeeBasicSalary
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                     </svg>
                                                     <span className="hidden md:inline">
-                                                        {formData.payment_status === 'paid' ? 'Mark as Unpaid' : 'Mark as Paid'}
+                                                        {String(formData.payment_status).toLowerCase() === 'paid' ? 'Mark as Unpaid' : 'Mark as Paid'}
                                                     </span>
                                                 </button>
                                             )}
@@ -791,7 +905,7 @@ export default function PayAdmin({ employeeId, employeeName, employeeBasicSalary
                                     {allPayslips.map(payslip => (
                                         <li key={payslip.id} className="py-3 flex justify-between items-center">
                                             <div>
-                                                <p className="text-neutral-900 font-medium">{payslip.month}</p>
+                                                <p className="text-neutral-900 font-medium">{(payslip.months || []).join(", ")}</p>
 
                                             </div>
                                             <div className="flex items-center space-x-3">
